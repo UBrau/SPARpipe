@@ -73,7 +73,6 @@ my %FWF;
 my %RVF;
 my %UNQ;
 
-print "@files\n";
 foreach my $file (@files) {
     if ($file =~ /.+Fwd.sorted.bam/) {
         $file =~ m/.+(W[0-9]+)_FwBC.+/;
@@ -95,17 +94,17 @@ foreach my $well (sort keys %UNQ) {
 	next;
     }
     
-    system "$bin/junction_counts.sh $outDir/map/$FWF{$well} $juncBase" and
+    system "$bin/bin/junction_counts.sh $outDir/map/$FWF{$well} $juncBase" and
 	die "[3] Error when getting counts for $well\n";
 }
 print "[3] Done getting junction counts\n";
 
 # Get PSI, RPM, pseudo counts etc. per well
-system "$bin/compute_psi_rpm.R -c $cores $outDir" and
+system "$bin/R/compute_psi_rpm.R -c $cores $outDir" and
     die "[3] Error when calculating PSI etc.\n";
 print "[3] Done computing PSI\n";
 
 # Merge tables
-system "$bin/merge_tables.R -c $cores $outDir" and
+system "$bin/R/merge_tables.R -c $cores $outDir" and
     die "[3] Error when merging tables\n";
 print "[3] Done merging tables\n";

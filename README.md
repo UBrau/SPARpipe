@@ -24,9 +24,9 @@ Output
 * Per 'batch', files with PSI, reads per event, inclusion/exclusion reads etc.
 * Demultiplexing and mapping stats
 
-Requirements
+Dependencies
 ------------
-* bowtie, samtools
+* bowtie, samtools, R
 
 Workflow
 --------

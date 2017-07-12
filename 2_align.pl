@@ -60,7 +60,7 @@ mkdir $outDir."/map" unless (-e $outDir."/map");
 
 # Run bowtie on each file
 foreach my $input (@ARGV) {
-    system "$bin/run_bowtie.sh $input $junc ".$outDir."/map $cores $trim5 $trim3 \"$btopt\" $bin" and
+    system "$bin/bin/run_bowtie.sh $input $junc ".$outDir."/map $cores $trim5 $trim3 \"$btopt\" $bin/bin" and
 	die "[2] Error during bowtie mapping of $input\n";
 
 }
