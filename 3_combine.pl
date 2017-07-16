@@ -1,7 +1,7 @@
 #!/usr/bin/env perl                                                                                                                                     
 ### U. Braunschweig, 04/2017
 ###
-### Changes: New option --pattern
+### Changes: New option --batch
 
 use strict;
 use Getopt::Long;
@@ -9,9 +9,10 @@ use Cwd qw(abs_path);
 
 my $helpFlag = 0;
 my $juncBase;
-my $pattern = "";
+my $evTab;
+my $treatTab;
 my $outDir;
-my $cores  = 2;
+my $cores  = 1;
 my $bin;
 
 # Initialize
@@ -22,7 +23,8 @@ $path =~ s/\/$0$//;
 
 GetOptions("help"        => \$helpFlag,
            "juncBase=s"  => \$juncBase,
-	   "pattern:s"   => \$pattern,
+           "eventTab=s"  => \$evTab,
+           "treatTab=s"  => \$treatTab,
            "outDir:s"    => \$outDir,
            "bin:s"       => \$bin,
            "cores:i"     => \$cores,
@@ -30,18 +32,22 @@ GetOptions("help"        => \$helpFlag,
 
 ### Input checking
 # Usage message
-if ($helpFlag | !defined($juncBase) | !scalar(@ARGV) | defined($ARGV[1])) {
+if ($helpFlag | !defined($evTab)| !defined($treatTab)| !defined($juncBase) | !scalar(@ARGV) | defined($ARGV[1])) {
   die "
 *** Extract raw PSI, RPM and pseudocounts from aligned SPAR-seq data ***
 Input:  Output directory containing folder /map with BAM files
         (*sorted.bam) produced by 2_align_reads.pl
 Output: Tables with read counts per junction, one per sample
 
-Usage: $0 --juncBase JUNCBASE DIR
+Usage: $0 --juncBase JUNCBASE --eventTab FILE --treatTab FILE DIR
 Options:
-         --juncBase  Base name of junction BED files
-        [--pattern]  Pattern to look for in BAM files. Use this if there are e.g. multiple lanes
-                     and run each lane separately.
+         --juncBase  Base name of junction BED files. This is a pair (fwd/rev) of simple BED files
+                     derived from the Junctions library, where every junction has a line with
+                     junction name as chromosome, 0 as start, junction length as end.
+         --eventTab  Event table specifying which junctions to use etc. Must contain columns
+                     Gene, Event, Label, Relative, JunctionsFw, and JunctionsR.
+         --treatTab  Treatment table specifying all samples in the project, including replicates. 
+                     Must contain columns ID, Replicate, Batch, Barcode.
         [--bin]      Directory containing scripts [default: $path]
         [--cores]    Computing cores [default: $cores]
 
@@ -53,58 +59,76 @@ $bin = $path unless (defined $bin);
 
 my $outDir = $ARGV[0];
 die "Folder /map not found in $outDir\n" unless (-e $outDir."/map");
+die "Event table not found\n" unless (-e $evTab);
+die "Treatment table not found\n" unless (-e $treatTab);
 die "Fwd junction BED not found at ".$juncBase."_fwd.bed\n" unless (-e $juncBase."_fwd.bed");
 die "Rev junction BED not found at ".$juncBase."_rev.bed\n" unless (-e $juncBase."_rev.bed");
 
-# Create output dir if missing
 $outDir =~ s/\/$//;
-mkdir $outDir."/counts" unless (-e $outDir."/counts");
-mkdir $outDir."/welldata" unless (-e $outDir."/welldata");
-mkdir $outDir."/batchdata" unless (-e $outDir."/batchdata");
+
 
 # Find BAM files
 opendir(DIR, $outDir."/map") or die;
-#my @files = grep(/\.sorted.bam$/, readdir(DIR));
-my $re = qr/$pattern/;
-my @files = grep(/${re}.*sorted\.bam/, readdir(DIR));
+my @files = grep(/.*sorted\.bam$/, readdir(DIR));
 closedir(DIR);
-    
+
+my %BATCHES;
+foreach my $file (@files) {
+    $file =~ m/([^_]*)_?W.+/;
+    $BATCHES{$1} = 1;
+}
+
 my %FWF;
 my %RVF;
 my %UNQ;
 
 foreach my $file (@files) {
     if ($file =~ /.+Fwd.sorted.bam/) {
-        $file =~ m/.+(W[0-9]+)_FwBC.+/;
+        $file =~ m/(.+W[0-9]+)_FwBC.+/;
         $FWF{$1} = $file;
 	$UNQ{$1} = 1
     } elsif ($file =~ /.+Rev.sorted.bam/) {
-        $file =~ m/.+(W[0-9]+)_FwBC.+/;
+        $file =~ m/(.+W[0-9]+)_FwBC.+/;
         $RVF{$1} = $file;
 	$UNQ{$1} = 1
     }
 }
 
+
 # Check if both fwd and rev are there and get counts
-foreach my $well (sort keys %UNQ) {
-    die "Fwd BAM file not found for $well\n" unless defined ($FWF{$well});
-    die "Rev BAM file not found for $well\n" unless defined ($RVF{$well});
-    if ($well eq "") {
-	print "Skipping $FWF{$well} and $RVF{$well}\n";
+mkdir $outDir."/counts" unless (-e $outDir."/counts");
+foreach my $sample (sort keys %UNQ) {
+    die "Fwd BAM file not found for $sample\n" unless defined ($FWF{$sample});
+    die "Rev BAM file not found for $sample\n" unless defined ($RVF{$sample});
+    if ($sample eq "") {
+	print "Skipping $FWF{$sample} and $RVF{$sample}\n";
 	next;
     }
     
-    system "$bin/bin/junction_counts.sh $outDir/map/$FWF{$well} $juncBase" and
-	die "[3] Error when getting counts for $well\n";
+    system "$bin/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
+	die "[3] Error when getting counts for $sample\n";
 }
 print "[3] Done getting junction counts\n";
 
+
 # Get PSI, RPM, pseudo counts etc. per well
+mkdir $outDir."/welldata" unless (-e $outDir."/welldata");
 system "$bin/R/compute_psi_rpm.R -c $cores $outDir" and
     die "[3] Error when calculating PSI etc.\n";
 print "[3] Done computing PSI\n";
 
+
 # Merge tables
-system "$bin/R/merge_tables.R -c $cores $outDir" and
-    die "[3] Error when merging tables\n";
-print "[3] Done merging tables\n";
+mkdir $outDir."/batchdata" unless (-e $outDir."/batchdata");
+foreach my $batch (sort keys %BATCHES) {
+    system "$bin/R/merge_tables.R -b $batch -c $cores $outDir" and
+	die "[3] Error when merging tables\n";
+    print "[3] Done merging tables for batch $batch\n";
+}
+
+
+# Merge batches and reconcile with expected samples and events
+mkdir $outDir."/raw" unless (-e $outDir."/raw");
+system "$bin/R/combine_batches.R -e $evTab -t $treatTab $outDir" and
+    die "[3] Error when creating output tables\n";
+print "[3] Done creating output tables\n";

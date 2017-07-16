@@ -37,7 +37,7 @@ Workflow
      that file names are compatible with downstream steps as sample numbers and batch IDs are
      taken from file names.
 3. Map demultiplexed FASTQ files to junction libraries using 2_align.pl.
-4. Extract read counts and metrics from BAM files using 3_combine.pl. In case the
+4. Extract read counts and metrics from BAM files using 3_count.pl. In case the
      project is distributed over several 'batches', each one is run separately.
 5. Combine batches  ###PENDING###
      

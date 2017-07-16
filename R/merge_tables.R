@@ -2,9 +2,10 @@
 ### Combine PSI and RPM values from all experiments into one super file
 ###
 ### K. Ha 2013-11-14
-### Modified U. Braunschweig 10/2014 and 04/2017
+### Modified U. Braunschweig 10/2014 and 04-07/2017
 ### Changes: - More intuitively named files and columns
 ###          - Adapt to different file structure of input
+###          - Fix issue with simultaneous processing of batches
 
 
 libMissing <- !require(optparse, quietly=T)
@@ -16,6 +17,8 @@ if (libMissing) {stop("Failed to load R package(s) in merge_tables.R")}
 ### Parse input
 args <- commandArgs(TRUE)
 option.list <- list(
+    make_option(c("-b", "--batch"),  default="",
+        help="Batch identifier [%default]"),
     make_option(c("-c", "--cores"),  default=1,
         help="Number of CPUs [%default]")
 )
@@ -31,14 +34,15 @@ inDir <- sub("/*$","",opt$args[1])
 
 
 ### Function definitions
-main <- function(batch) {
-    psi.files <- list.files(file.path(inDir, "welldata"), pattern="W.*.RAW.tab", full.names=T)
+main <- function(batch, cores=1) {
+    psi.files <- list.files(file.path(inDir, "welldata"), pattern=paste(batch, ".*W.*.RAW.tab", sep=""), full.names=T)
 
-    psi.input     <- lapply(psi.files, read.csv, sep="\t")
-    rpm.input     <- lapply(psi.input, "[", c("Event", "RPM.Fw", "RPM.Rv", "RPM"))
-    read.input    <- lapply(psi.input, "[", c(which(names(psi.input[[1]]) == "Event"), grep("Reads", names(psi.input[[1]]))))
-    countIE.input <- lapply(psi.input, "[", c("Event", "Counts.InEx"))
-    psi.input     <- lapply(psi.input, "[", c("Event", "PSI.Fw", "SD.Fw", "PSI.Rv", "SD.Rv", "PSI"))
+    psi.input     <- mclapply(psi.files, read.csv, sep="\t", mc.cores=cores)
+    rpm.input     <- mclapply(psi.input, "[", c("Event", "RPM.Fw", "RPM.Rv", "RPM"), mc.cores=cores)
+    read.input    <- mclapply(psi.input, "[", c(which(names(psi.input[[1]]) == "Event"), grep("Reads", names(psi.input[[1]]))), 
+    		     mc.cores=cores)
+    countIE.input <- mclapply(psi.input, "[", c("Event", "Counts.InEx"), mc.cores=cores)
+    psi.input     <- mclapply(psi.input, "[", c("Event", "PSI.Fw", "SD.Fw", "PSI.Rv", "SD.Rv", "PSI"), mc.cores=cores)
     names(psi.input) <- names(read.input) <- names(countIE.input) <- names(rpm.input) <- str_extract(psi.files, "W\\d+")
 
     ## PSI
@@ -65,7 +69,7 @@ main <- function(batch) {
 
     write.table(super.rpm, file=file.path(inDir, paste("batchdata/RPM.FULL_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
-    write.table(super.rpm[,c(1,seq(5,ncol(super.rpm),3))], 
+    write.table(super.rpm[,c(1,seq(4,ncol(super.rpm),3))], 
                 file=file.path(inDir, paste("batchdata/RPM_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
     cat("Done merging RPM files\n")
@@ -100,6 +104,5 @@ main <- function(batch) {
 }
 
 ### Meat
-batch <- sort(unique(sub("_$", "", sub("(.*)W[0-9].+", "\\1", dir(file.path(inDir, "welldata"), pattern=".*W[0-9]+.+RAW.tab")))))
-exit <- mclapply(batch, main, mc.cores=min(opt$options$cores, length(batch)))
-if (!all(exit == 0)) {stop("Error during merging")}
+exit <- main(opt$options$batch, cores=opt$options$cores)
+if (exit != 0) {stop("Error during merging")}

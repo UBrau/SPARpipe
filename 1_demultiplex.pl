@@ -14,7 +14,7 @@ $ulimit > 2000 or die "Insufficient ulimit! Type 'ulimit -n 2048'\n";
 
 my $helpFlag = 0;
 my $barcodefile;
-my $prefix = "";
+my $prefix = "L1";
 my $outDir = ".";
 
 GetOptions("help"        => \$helpFlag,
@@ -37,7 +37,7 @@ Output: One FASTQ file for every permissible barcode combination (= well)
 Usage: $0 [options] --barcodes <allowed barcode table> <R1.fq[.gz]> <FwBC.sam> <RevBC.sam> <R4.fq[.gz]>
 Options:
          --barcodes  Table with columns well, i5 BC, i5 BC name, i7 BC, i7 BC name
-        [--prefix]   Batch prefix, e.g. 'Lane1' [default: \"\"]
+        [--prefix]   Batch prefix, e.g. 'Lane1'. Must not contain , or _ [default: $prefix]
         [--outDir]   Output directory [default: ./]
 
 ";

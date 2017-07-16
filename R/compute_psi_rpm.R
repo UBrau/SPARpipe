@@ -13,7 +13,7 @@ libMissing <- !require(optparse, quietly=T)
 if (libMissing) {stop("Failed to load R package 'optparse'")}
 
 #### Options
-args <- commandArgs(TRUE)
+args <- commandArgs(FALSE)
 
 option.list <- list(
     make_option(c("-e", "--events"), type="character",
@@ -182,10 +182,10 @@ main <- function(file) {
 
 
 ### Check input
-outDir  <- sub("/*$", "", opt$args[1])
+outDir  <- sub("/*$", "", opt$args[length(opt$args)])
 
-if (!dir.exists(file.path(opt$args[1], "counts"))) {
-    stop("Directory ", opt$args[1], "/counts not found")
+if (!dir.exists(file.path(outDir, "counts"))) {
+    stop("Directory ", outDir, "/counts not found")
 }                                                                                                                                                                           
 
 files <- dir(file.path(outDir, "counts"), pattern=".*W[0-9]+.+counts.tab")
