@@ -42,6 +42,8 @@ Workflow
 --------
 1. Map fwd and rev barcode reads to barcode libraries with 
      `bowtie -v 2 -k 1 -m 1 --best --strata [--nofw|--norc] -S --sam-nohead <BC> <FASTQ> <BCx.sam>`
+     Whether to use --nofw/norc may depend on the sequencing platform (HiSeq/NextSeq/MySeq)
+     but it can probably be left out without much loss of specificity.
 2. Demultiplex the fwd and rev event read files using the SAM files just created 
      and the script `1_demultiplex.pl`. If demultiplexing is done otherwise, make sure 
      that file names are compatible with downstream steps as sample numbers and batch IDs are
@@ -49,6 +51,7 @@ Workflow
 3. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`.
 4. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
      and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the
-     project is distributed over several 'batches', each one is run separately.
-5. Combine batches and check samples against a template, as well as check events.
+     project is distributed over several 'batches', they will be combined. Events and samples 
+     are checked against the provided templates.
+
      
