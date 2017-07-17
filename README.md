@@ -17,7 +17,7 @@ Input
 * FASTQ files with one read each for the fwd barcode (I1), rev barcode (I2),
   fwd event (R1), and rev event (R2). In a big project multiplexed over several
   Illumina lanes/runs, there will be 'batches' with one of each of the above.
-* Fwd and rev barcode bowtie libraries, plus BED files for both (<junction name> 0 <junction length>)
+* Fwd and rev barcode bowtie libraries, plus BED files for both (junction_name 0 junction_length)
   These can be generated from a spreadsheet containing genomic coordinates using a helper function
   that is available upon request.
 * A barcode table containing the expected combinations of fwd and rev barcodes.
@@ -47,7 +47,8 @@ Workflow
      that file names are compatible with downstream steps as sample numbers and batch IDs are
      taken from file names.
 3. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`.
-4. Extract read counts and metrics from BAM files using `3_count.pl`. In case the
+4. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
+     and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the
      project is distributed over several 'batches', each one is run separately.
 5. Combine batches and check samples against a template, as well as check events.
      
