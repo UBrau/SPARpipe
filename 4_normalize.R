@@ -11,13 +11,14 @@ libMissing <- !require(optparse, quietly=T) && stop("Failed to load R package 'o
 args <- commandArgs(TRUE)
 option.list <- list(
     make_option(c("-t", "--treatTab"),       action="store", type="character", metavar="FILE",
-                help="Path of treatmtent file for experimental peaks. This file specifies all
-                      samples in the project, including replicates. Required columns are ID,
-                      Replicate, Batch, Barcode, Plate."),
+                help="Path of treatment file for experimental peaks. This file specifies all samples
+                in the project, including replicates. Required columns are ID (must be identical
+                across replicates), Replicate, Batch, Barcode (e.g., W001), Plate, Treatment."),
     make_option(c("-n", "--norm"),           default="wpMedian",
-                help="Type of normalization. Supported are 'none', 'pMedian', wpMedian' [%default]"),
+                help="Type of normalization. Supported are 'none', 'pMedian' (plate median), wpMedian'
+                (plate median with higher weight for neg. controls) [%default]"),
     make_option(c("-w", "--negCtlWt"),       default=20,
-                help="Weight for neg. controls when --norm=pwMean [%default]"),
+                help="Weight for neg. controls when --norm=wpMedian [%default]"),
     make_option(c("-m", "--minCounts"),      default=20,
                 help="Minimum counts per event for filtering [%default]"),
     make_option(c("-c", "--cores"),          default=1,
@@ -25,7 +26,7 @@ option.list <- list(
 )
 parser <- OptionParser(option_list=option.list,
                        usage="usage: %prog [options] OUTDIR",
-                       description="Normalize raw PSI")
+                       description="Normalize raw PSI and produce dPSI and SSMD")
 opt <- parse_args(parser, args=args, positional_arguments=TRUE)
 
 if (length(opt$args) != 1)
