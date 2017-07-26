@@ -13,7 +13,7 @@ option.list <- list(
     make_option(c("-t", "--treatTab"),       action="store", type="character", metavar="FILE",
                 help="Path of treatment file for experimental peaks. This file specifies all samples
                 in the project, including replicates. Required columns are ID (must be identical
-                across replicates), Replicate, Batch, Barcode (e.g., W001), Plate, Treatment."),
+                across replicates), Replicate, Barcode (e.g., W001), Plate, Treatment"),
     make_option(c("-n", "--norm"),           default="wpMedian",
                 help="Type of normalization. Supported are 'none', 'pMedian' (plate median), wpMedian'
                 (plate median with higher weight for neg. controls) [%default]"),
