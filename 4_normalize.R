@@ -37,13 +37,12 @@ if (length(opt$args) != 1)
 normalizePSI <- function(x, treat, type, negCtlWt=1) {
 ### Normalize raw PSI
     plates <- unique(treat$Plate)
-                      
     if (type == "none") {
         norm <- as.matrix(raw[,-c(1,2)])
         rownames(norm) <- paste(raw$ID, raw$Replicate, sep=".")
     }
     
-    if (type %in% c("pMedian", "pMedian")) {
+    if (type %in% c("pMedian", "wpMedian")) {
         norm <- matrix(nrow=nrow(raw), ncol=ncol(raw) - 2,
                        dimnames=list(paste(raw$ID, raw$Replicate, sep="."), names(raw)[-c(1,2)])
                        )
