@@ -3,6 +3,9 @@ SPARpipe
 
 A pipeline to extract results from raw SPAR-seq data.
 
+This collection of scripts serves to help you get from raw sequencing output to tables with 
+effect size per treatment. 
+
 Few bells and whistles, and still under development. Comes strictly 'as-is' - use at your own risk.
 
 Reference
@@ -25,11 +28,11 @@ Input
   elements in each amplicon and a string code indicating how they are connected, as well as a CSV
   file with primer sequences.
 * A barcode table containing the expected combinations of fwd and rev barcodes (also produced by
-  the accessory script).
+  the accessory script)
 * An event table created concomitantly with the junction library (also produced by the accessory
   script), detailing which junctions should be used to calculate the PSI for each (part of an) 
   event
-* A treatment table specifying barcode numbers and batch along with treatment ID and replicate.
+* A treatment table specifying barcode numbers and batch along with treatment ID and replicate
 
 Output
 ------
@@ -37,7 +40,7 @@ Output
 * Plots to follow normalization, check coverage, and monitor screen performance
 * Demultiplexing and mapping stats
 * Intermediate files per sample and batch such as FASTQ files of unmapped reads, 
-  BAM files of mapped reads, raw PSI and count files.
+  BAM files of mapped reads, raw PSI and count files
 
 Dependencies
 ------------
@@ -55,11 +58,14 @@ Workflow
    taken from file names.
 2. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`.
 3. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
-   and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the
-   project is distributed over several 'batches', they will be combined. Events and samples 
-   are checked against the provided templates.
+   and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the project is distributed 
+   over several 'batches', they will be combined. Events and samples are checked against the 
+   provided templates.
 4. Perform normalization of raw PSI with `4_normalize.R` (currently, only plate normalization 
    and weighthed plate normalization are implemented) to get dPSI and SSMD scores.
    This step can also be performed on raw PSI data from other sources, as long as a suitable
    treatment table and a table with read counts per event are provided.
      
+Known issues
+------------
+- There is no module yet to extract expression changes
