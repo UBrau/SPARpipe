@@ -20,7 +20,7 @@ Input
   Illumina lanes/runs, there will be 'batches' with one of each of the above.
 * Fwd and rev barcode bowtie libraries that contain the expected reads, plus BED files for both 
   (junction_name 0 junction_length).
-  These can be generated from FASTA junction files produced by the script  'MakeJunctionsFASTA.R' 
+  These can be generated from FASTA junction files produced by the script `MakeJunctionsFASTA.R` 
   in the accessories folder. As input, it takes a CSV spreadsheet with the sequences of all the 
   elements in each amplicon and a string code indicating how they are connected, as well as a CSV
   file with primer sequences.
