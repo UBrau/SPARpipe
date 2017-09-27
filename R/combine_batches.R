@@ -5,7 +5,7 @@
 ### the host exon if applicable, perform a normalization, and calculate
 ### average PSI, dPSI, and SSMD for each treatment.
 
-cArgs <- commandArgs(FALSE)
+cArgs <- commandArgs(TRUE)
 
 ## Check dependencies
 libMissing <- !require("optparse", quietly=T) && stop("Failed to load R package 'optparse")
@@ -52,7 +52,7 @@ cTables <- function(x, type="", treat) {
 ### Concatenate a list of tables
 ### x: a List of reformatted tables
     if (length(x) == 1) {
-        out <- x
+        out <- x[[1]]
     } else {
         out <- x[[1]]
         for (i in 2:length(x)) {out <- rbind(out, x[[i]])}

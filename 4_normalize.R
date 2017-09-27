@@ -245,7 +245,7 @@ plotLowCounts <- function(counts, minCounts=1) {
 
     par(mar=c(4.3, 4, 3.5, 2))
     xpos <- barplot(rep(NA, length(lowCounts)), yaxt="n", ylim=c(0,130), ylab="% of samples",
-            main=paste("Treatments with less than ", minCounts, " samples in at least one replicate", sep=""),
+            main=paste("Treatments with less than ", minCounts, " reads in at least one replicate", sep=""),
             xlab=paste(length(which(lowCounts/length(id.reps) < 0.1)), "/", length(lowCounts), 
                        " events with more than 90% treatments above 20 reads", sep="")
             )
@@ -475,7 +475,7 @@ plotPerformance <- function(raw, norm, treat, cores) {
                    "Neg. controls" = which(treat1$Type == "ctlNeg"),
                    "Experimental"  = which(treat1$Type == "exp")
                    )
-    cols <- c("Brown1","dodgerblue","black")
+    cols <- c("brown1","dodgerblue","black")
     suppressWarnings(
         xlim <- c(0, max(c(max(abs(c(as.numeric(raw[unlist(groups[2]),]), as.numeric(norm[unlist(groups[1]),])))),
                            quantile(apply(abs(cbind(raw, norm))[groups[[1]],], MAR=1, max, na.rm=T), 0.50, na.rm=T),
@@ -518,14 +518,21 @@ plotPerformance <- function(raw, norm, treat, cores) {
 }
 
 .plotPerformance.count <- function(x, y, z) {
-    sum(apply(x[y,], MAR=1, FUN=function(a) {any(abs(a) >= z)}), na.rm=T) / length(y)
+    if (length(y) > 1) {	      
+        return(sum(apply(x[y,], MAR=1, FUN=function(a) {any(abs(a) >= z)}), na.rm=T) / length(y))
+    }
+    if (length(y) == 1) {
+        return(sum(any(abs(x[y,]) >= z)))
+    }
+    if (length(y) == 0) {
+        return(NA)
+    }
 }
 #### Main part ####
 
 ### Load packages
 libMissing <- !require(MASS, quietly=T) && stop("Failed to load R package 'MASS'")
 libMissing <- !require(parallel, quietly=T) && stop("Failed to load R package 'parallel'")
-
 
 ### Check input
 inDir <- sub("\\/*$","",opt$args[length(opt$args)]) # directories are checked upstream

@@ -28,8 +28,8 @@ GetOptions("help"        => \$helpFlag,
 if ($helpFlag | !defined($barcodefile) | !defined($ARGV[3])) {
   die "
 *** Demultiplexing of double-barcoded SPAR-seq screen ***
-using bowtied mappings to barcode libraries (i.e., from separate
-barcode reads.
+... using bowtie mappings to barcode libraries (i.e., from separate barcode reads)
+
 Output: One FASTQ file for every permissible barcode combination (= well)
         and one (per direction) for unassigned reads.
         Also output a table with read counts per file.
