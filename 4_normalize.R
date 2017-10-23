@@ -11,7 +11,7 @@ libMissing <- !require(optparse, quietly=T) && stop("Failed to load R package 'o
 args <- commandArgs(TRUE)
 option.list <- list(
     make_option(c("-t", "--treatTab"),       action="store", type="character", metavar="FILE",
-                help="Path of treatment file for experimental peaks. This file specifies all samples
+                help="Path of treatment table. This file specifies all samples
                 in the project, including replicates. Required columns are ID (must be identical
                 across replicates), Replicate, Barcode (e.g., W001), Plate, Treatment"),
     make_option(c("-n", "--norm"),           default="pMedian",
