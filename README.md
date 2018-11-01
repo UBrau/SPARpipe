@@ -1,12 +1,21 @@
 SPARpipe
 ========
 
-A pipeline to extract results from raw SPAR-seq data.
-
-This collection of scripts serves to help you get from raw sequencing output to tables with 
-effect size per treatment. 
+Tools to help design and extract results from raw SPAR-seq data.
 
 Few bells and whistles, and still under development. Comes strictly 'as-is' - use at your own risk.
+
+
+SPAR-seq is a strategy to obtain a sequencing-based readout for a selected set of RNA processing
+events of interest from an arrayed screen using any kind of perturbation. Portions of endogenous
+transcripts are simulatenously amplified in each well of a multi-well plate, barcoded to allow
+tracking of the well of origin, pooled, and sequenced. 
+
+This collection of scripts serves to help you get from raw sequencing output to tables with  
+effect size per treatment. Scripts are included to check primers for multiplex-RT-PCR for 3'-overlaps,
+which are the major source of un-assignable reads; as well as for generating a junction library
+for alignment of event reads. 
+
 
 Reference
 ---------
@@ -48,6 +57,9 @@ Dependencies
 
 Workflow
 --------
+
+Analysis
+........
 0. Map fwd and rev barcode reads to barcode libraries with 
    `bowtie -v 2 -k 1 -m 1 --best --strata [--nofw|--norc] -S --sam-nohead <BC> <FASTQ> <BCx.sam>`
    Whether to use --nofw/norc may depend on the sequencing platform (HiSeq/NextSeq/MySeq)
