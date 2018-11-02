@@ -39,19 +39,23 @@ Workflow
    different expression lest you sequence mostly the few most highly expressed events.
 2. Check primers using `CheckPrimers.R`.
 3. Create a CSV file detailing the coordinates and sequences of the different parts of each 
-   amplicon. Their properties and connection is provided by a string in column *structure*:
+   amplicon. Their properties and connections are provided by a string in column *structure*:
    * C1: upstream constitutive exon (part)
    * C2: dowmstream constitutive exon (part)
-   * E1, E2, ...: alternative exons. Capital E for segments that will actually be scored.
+   * E1, E2, ...: alternative exons. Capital E for segments for which a score shall be produced.
    * [3] : Suffix to elements that are due to an alternative 3' splice site.
    * [5] : Same, for 5' splice site.
    * [i] : Suffix for intron retention event
-   * - and : indicate joints connections via a splice and adjacent elements, respectively
+   * `-` and `:` indicate joints connections via a splice and adjacent elements, respectively.
+
    Example: C1-E1:e2[5]:e3[5]-e4[3]:C2 indicates a situation with one cassette exon (E1) that
-            has two nested alternative 5' splice sites, and an alternative 3' splice site at
-            the downstream constitutive exon. Only E1 will be monitored. 
+            has two nested alternative 5' splice sites (e2 and e3), and an alternative 3' splice 
+            site at the downstream constitutive exon (e4). Only E1 will be monitored.
+
+   Required columns are *gene*, *event*, *structure*, *chrom*, *strand*, *C1.start*, *C1.end*,
+   *C2.start*, *C2.end*, and *X.start* and *X.end* columns for every alternative segment E1-En.
 4. Run `MakeJunctionsFASTA.R` to generate junction libraries in FASTA format, report the minimum
-   edit distance between junctions (which should be as big as possible but > 2), and BED files 
+   edit distance between junctions (which should be as big as possible but > 1), and BED files 
    of the events required downstream.
 
 ### Experiment
@@ -102,7 +106,6 @@ Output
 * Intermediate files per sample and batch such as FASTQ files of unmapped reads, 
   BAM files of mapped reads, raw PSI and count files
 
-     
 Known issues
 ------------
 - There is no module yet to extract expression changes. See the paper for a strategy.
