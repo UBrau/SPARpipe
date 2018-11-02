@@ -46,14 +46,15 @@ Workflow
    * [3] : Suffix to elements that are due to an alternative 3' splice site.
    * [5] : Same, for 5' splice site.
    * [i] : Suffix for intron retention event
-   * `-` and `:` indicate joints connections via a splice and adjacent elements, respectively.
+   * `-` and `:` indicate connections via a splice and adjacent elements, respectively.
 
    Example: C1-E1:e2[5]:e3[5]-e4[3]:C2 indicates a situation with one cassette exon (E1) that
             has two nested alternative 5' splice sites (e2 and e3), and an alternative 3' splice 
             site at the downstream constitutive exon (e4). Only E1 will be monitored.
 
    Required columns are *gene*, *event*, *structure*, *chrom*, *strand*, *C1.start*, *C1.end*,
-   *C2.start*, *C2.end*, and *X.start* and *X.end* columns for every alternative segment E1-En.
+   *C2.start*, *C2.end*, and *X.start* and *X.end* columns for every alternative segment E1-En,
+   (1-based coordinates) followed by sequences (5' to 3') *C1.seq*, *C2.seq* and *X.seq* for E1-En. 
 4. Run `MakeJunctionsFASTA.R` to generate junction libraries in FASTA format, report the minimum
    edit distance between junctions (which should be as big as possible but > 1), and BED files 
    of the events required downstream.
@@ -81,6 +82,7 @@ barcode reads (or see below).
    This step can also be performed on raw PSI data from other sources, as long as a suitable
    treatment table and a table with read counts per event are provided.
 
+
 Input for analysis
 ------------------
 * Fwd and rev barcode bowtie libraries that contain the expected reads, plus BED files for both 
@@ -98,6 +100,7 @@ Input for analysis
   event
 * A treatment table specifying barcode numbers and batch along with treatment ID and replicate
 
+
 Output
 ------
 * Tables with raw and normalized PSI, dPSI, and SSMD
@@ -105,6 +108,7 @@ Output
 * Demultiplexing and mapping stats
 * Intermediate files per sample and batch such as FASTQ files of unmapped reads, 
   BAM files of mapped reads, raw PSI and count files
+
 
 Known issues
 ------------
