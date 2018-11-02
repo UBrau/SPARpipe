@@ -1,7 +1,7 @@
 SPARpipe
 ========
 
-**Tools to help design and extract results from raw SPAR-seq data**
+**Tools to help design a SPAR-seq screen and extract results from raw sequencing data**
 
 Few bells and whistles, and still under development. Comes strictly 'as-is' - use at your own risk.
 
