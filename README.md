@@ -37,7 +37,7 @@ Workflow
 1. Design primers for your set of RNA processing events of interest. Avoid amplicons of
    dramatically different length to minimize amplification bias, and genes with dramatically 
    different expression lest you sequence mostly the few most highly expressed events.
-2. Check primers using `CheckPrimers.R`.
+2. Check primers for 3'-overlaps using `CheckPrimers.R`. We have found that overlaps of 5 bp and more cause primer dimer problems.
 3. Create a CSV file detailing the coordinates and sequences of the different parts of each 
    amplicon. Their properties and connections are provided by a string in column *structure*:
    * C1: upstream constitutive exon (part)
@@ -75,8 +75,8 @@ barcode reads (or see below).
 2. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`.
 3. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
    and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the project is distributed 
-   over several 'batches', they will be combined. Events and samples are checked against the 
-   provided templates.
+   over several 'batches' (e.g. re-using barcodes andrun in different lanes), they will be combined.
+   Events and samples are checked against the provided templates.
 4. Perform normalization of raw PSI with `4_normalize.R` (currently, only plate normalization 
    and weighthed plate normalization are implemented) to get dPSI and SSMD scores.
    This step can also be performed on raw PSI data from other sources, as long as a suitable
@@ -87,17 +87,15 @@ Input for analysis
 ------------------
 * Fwd and rev barcode bowtie libraries that contain the expected reads, plus BED files for both 
   (junction_name 0 junction_length).
-  These can be generated from FASTA junction files produced by the script `MakeJunctionsFASTA.R` 
-  in the accessories folder. As input, it takes a CSV spreadsheet with the sequences of all the 
-  elements in each amplicon and a string code indicating how they are connected, as well as a CSV
-  file with primer sequences.
+  These can be generated with by the script `MakeJunctionsFASTA.R` in the accessories folder, 
+  see 'Setup' above.
 * FASTQ files with one read each for the fwd barcode (I1), rev barcode (I2),
   fwd event (R1), and rev event (R2). In a big project multiplexed over several
   Illumina lanes/runs, there will be 'batches' with one of each of the above.
-* A barcode table containing the expected combinations of fwd and rev barcodes
+  Alternatively, if samples are demultiplexed already, the file names need to conform to SPARpipe standard.
+* A barcode table containing the expected combinations of fwd and rev barcodes (if not de-multiplexed).
 * An event table created concomitantly with the junction library (also produced by the accessory
-  script), detailing which junctions should be used to calculate the PSI for each (part of an) 
-  event
+  script `MakeJunctionsFASTA.R`), detailing which junctions should be used to calculate the PSI for each (part of an) event
 * A treatment table specifying barcode numbers and batch along with treatment ID and replicate
 
 
