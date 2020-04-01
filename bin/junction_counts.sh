@@ -4,7 +4,7 @@ FILE=$1
 JUNC=$2
 
 BASE=`basename $FILE _Fwd.sorted.bam`
-#BASE=`basename $BASE _R1.sorted.bam`
+#BASE=`basename $FILE _R1.sorted.bam`
 DIR=`dirname $FILE`
 DIR=`dirname $DIR`
 
