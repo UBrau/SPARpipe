@@ -28,7 +28,8 @@ For feedback and questions, mail to u.braunschweig@utoronto.ca.
 
 Dependencies
 ------------
-* bowtie, samtools, R
+* SPARpipe is only available for Linux and has not been tested on MacOS.
+* bowtie >= 1.2.1, samtools, R, pigz
 
 
 Workflow
@@ -37,7 +38,8 @@ Workflow
 1. Design primers for your set of RNA processing events of interest. Avoid amplicons of
    dramatically different length to minimize amplification bias, and genes with dramatically 
    different expression lest you sequence mostly the few most highly expressed events.
-2. Check primers for 3'-overlaps using `CheckPrimers.R`. We have found that overlaps of 5 bp and more cause primer dimer problems.
+2. Check primers for 3'-overlaps using `CheckPrimers.R`. We have found that overlaps of 5 bp 
+   and more cause primer dimer problems.
 3. Create a CSV file detailing the coordinates and sequences of the different parts of each 
    amplicon. Their properties and connections are provided by a string in column *structure*:
    * C1: upstream constitutive exon (part)
@@ -72,7 +74,8 @@ barcode reads (or see below).
    and the script `1_demultiplex.pl`. If demultiplexing is done otherwise, make sure 
    that file names are compatible with downstream steps as sample numbers and batch IDs are
    taken from file names.
-2. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`.
+2. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`. This is done separately
+   for fwd and rev reads.
 3. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
    and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the project is distributed 
    over several 'batches' (e.g. re-using barcodes andrun in different lanes), they will be combined.
