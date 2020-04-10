@@ -29,7 +29,7 @@ For feedback and questions, mail to u.braunschweig@utoronto.ca.
 Dependencies
 ------------
 * SPARpipe is only available for Linux and has not been tested on MacOS.
-* bowtie >= 1.2.1, samtools, R, pigz
+* bowtie >= 1.2.1, samtools, R, pigz (available in your PATH)
 
 
 Workflow
@@ -40,8 +40,12 @@ Workflow
    different expression lest you sequence mostly the few most highly expressed events.
 2. Check primers for 3'-overlaps using `CheckPrimers.R`. We have found that overlaps of 5 bp 
    and more cause primer dimer problems.
-3. Create a CSV file detailing the coordinates and sequences of the different parts of each 
-   amplicon. Their properties and connections are provided by a string in column *structure*:
+3. Run `MakeJunctionsFASTA.R` to generate junction libraries in FASTA format, report the minimum
+   edit distance between junctions (which should be as big as possible but > 1), and BED files
+   of the events required downstream by 3_combine.pl.
+   
+   The eventFile is a CSV file detailing the coordinates and sequences of the different parts of 
+   each amplicon. Their properties and connections are provided by a string in column *structure*:
    * C1: upstream constitutive exon (part)
    * C2: dowmstream constitutive exon (part)
    * E1, E2, ...: alternative exons. Capital E for segments for which a score shall be produced.
@@ -57,9 +61,10 @@ Workflow
    Required columns are *gene*, *event*, *structure*, *chrom*, *strand*, *C1.start*, *C1.end*,
    *C2.start*, *C2.end*, and *X.start* and *X.end* columns for every alternative segment E1-En,
    (1-based coordinates) followed by sequences (5' to 3') *C1.seq*, *C2.seq* and *X.seq* for E1-En. 
-4. Run `MakeJunctionsFASTA.R` to generate junction libraries in FASTA format, report the minimum
-   edit distance between junctions (which should be as big as possible but > 1), and BED files 
-   of the events required downstream.
+
+   The primerFile is a CSV file with columns *event*, *seqF* and *seqR* (5' to 3', including 
+   adaptors)
+4. Use the forward and reverse junction FASTA files to generate (separate) bowtie indices.
 
 ### Experiment
 Order your primers, conduct your experiment, sequence your amplicon pools with paired-end reads and
@@ -68,18 +73,21 @@ barcode reads (or see below).
 ### Analysis
 0. Map fwd and rev barcode reads to barcode libraries with 
    `bowtie -v 2 -k 1 -m 1 --best --strata [--nofw|--norc] -S --sam-nohead <BC> <FASTQ> <BCx.sam>`
-   Whether to use --nofw/norc may depend on the sequencing platform (HiSeq/NextSeq/MySeq)
-   but it can probably be left out without much loss of specificity.
+   Whether to use --nofw/norc may depend on the sequencing platform (HiSeq/NextSeq/MiSeq...)
+   but it can probably be left out without much loss of specificity. Run on only 1 thread to
+   guarantee read order is maintained.
 1. Demultiplex the fwd and rev event read files using the SAM files just created 
    and the script `1_demultiplex.pl`. If demultiplexing is done otherwise, make sure 
    that file names are compatible with downstream steps as sample numbers and batch IDs are
-   taken from file names.
+   taken from file names. File names must conform to the pattern '[BATCH]_W[NUMBER]+_[OPTIONAL]_[Fwd/Rev].fa(.gz)',
+   where BATCH is a string that does not contain '_', and NUMBER is a unique number identifying the barcode
+   combination.
 2. Map demultiplexed FASTQ files to junction libraries using `2_align.pl`. This is done separately
    for fwd and rev reads.
 3. Extract read counts and metrics from BAM, and generate files with raw PSI, RPM, read counts, 
    and pseudo-inclusion/exclusion reads using `3_count.pl`. In case the project is distributed 
-   over several 'batches' (e.g. re-using barcodes andrun in different lanes), they will be combined.
-   Events and samples are checked against the provided templates.
+   over several 'batches' (e.g. re-using barcodes and run in different lanes), they will be combined.
+   Events and samples are checked against the provided templates specifying the design.
 4. Perform normalization of raw PSI with `4_normalize.R` (currently, only plate normalization 
    and weighthed plate normalization are implemented) to get dPSI and SSMD scores.
    This step can also be performed on raw PSI data from other sources, as long as a suitable
@@ -88,18 +96,21 @@ barcode reads (or see below).
 
 Input for analysis
 ------------------
-* Fwd and rev barcode bowtie libraries that contain the expected reads, plus BED files for both 
+* Fwd and rev barcode bowtie indexes that contain the expected reads, plus BED files for both 
   (junction_name 0 junction_length).
-  These can be generated with by the script `MakeJunctionsFASTA.R` in the accessories folder, 
-  see 'Setup' above.
+  We strongly recommend using the `MakeJunctionsFASTA.R` accessory script to produce FASTA files to 
+  make bowtie indexes from, see 'Setup' above.
 * FASTQ files with one read each for the fwd barcode (I1), rev barcode (I2),
   fwd event (R1), and rev event (R2). In a big project multiplexed over several
   Illumina lanes/runs, there will be 'batches' with one of each of the above.
-  Alternatively, if samples are demultiplexed already, the file names need to conform to SPARpipe standard.
+  Barcode combinations must be unique within a batch but can be re-used between batches.
+  Alternatively, if samples are demultiplexed already, the file names need to conform to SPARpipe standard
+  and barcode read files are not necessary.
 * A barcode table containing the expected combinations of fwd and rev barcodes (if not de-multiplexed).
-* An event table created concomitantly with the junction library (also produced by the accessory
-  script `MakeJunctionsFASTA.R`), detailing which junctions should be used to calculate the PSI for each (part of an) event
-* A treatment table specifying barcode numbers and batch along with treatment ID and replicate
+* The event table created concomitantly with the junction library (also produced by the accessory
+  script `MakeJunctionsFASTA.R`), detailing which junctions should be used to calculate the PSI for each 
+  (part of an) event.
+* A treatment table specifying barcode numbers and batch along with treatment ID and replicate.
 
 
 Output
