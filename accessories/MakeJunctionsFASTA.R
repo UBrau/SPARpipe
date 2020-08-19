@@ -6,11 +6,8 @@
 ### The string in the 'structure' column defines which elements are cassette exons, alternative ss,
 ### introns and 'constitutive' introns and for which elements PSI is requested.
 ###
-### U. Braunschweig 03/2020
-### Changes: - Check that primers actually match somewhere
-###          - Now tolerates lowercase letters in primers or junction elements - will be uppercased
-###          - Added output of amplicon FASTA
-
+### U. Braunschweig 2018-2020
+### Changes: - Make sure that sequence elements that are not used can be "" or NA without error
 
 cArgs <- commandArgs(TRUE)
 
@@ -30,9 +27,9 @@ opt.list <- list(
     make_option(c("-p", "--primerFile"),  action="store", type="character",
                 help="Path of CSV file. Must contain columns event, seqF, seqR (including adapters, 5'-3')"),
     make_option("--adaptF",                action="store", default="ACACTCTTTCCCTACACGACGCTCTTCCGATCT",
-                help="Common adapter sequence in fwd primers, 5'-3'"),
+                help="Common adapter sequence in fwd primers, 5'-3' [default: %default]"),
     make_option("--adaptR",                action="store", default="GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT",
-                help="Common adapter sequence in rev primers, 5'-3'"),
+                help="Common adapter sequence in rev primers, 5'-3'  [default: %default]"),
     make_option(c("-l", "--readLength"),  action="store", default=150,
                 help="Read length used in sequencing run [default: %default]"),
     make_option("--trimR1.5",             action="store", default=0,
@@ -91,7 +88,10 @@ if (!file.exists(opt$eventFile))  {stop("Could not find EVENTFILE, file: ", opt$
 if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt$primerFile)}
 
 events <- read.csv(opt$eventFile, as.is=T)
-for (i in grep("\\.seq", names(events))) {events[,i] <- toupper(events[,i])}
+for (i in grep("\\.seq", names(events))) {
+    events[,i] <- toupper(events[,i])
+    events[nchar(events[,i]) == 0,i] <- NA
+}
 
 primers <- read.csv(opt$primerFile, as.is=T)
 if (!all(events$event == primers$event)) {stop("Columns 'event' in events and primers files do not match")}
@@ -627,3 +627,4 @@ if (any(shortF$short > 0) | any(shortR$short > 0)) {
     write.table(bed.rv, file=paste(opt$juncOut, "_rev.bed", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
 }
+
