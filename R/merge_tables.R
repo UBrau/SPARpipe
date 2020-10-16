@@ -1,8 +1,7 @@
 #!/usr/bin/env Rscript
 ### Combine PSI and RPM values from all experiments into one super file
 ###
-### K. Ha 2013-11-14
-### Modified U. Braunschweig 10/2014 and 04-07/2017
+### K. Ha & U. Braunschweig 2013-2020
 ### Changes: - More intuitively named files and columns
 ###          - Adapt to different file structure of input
 ###          - Fix issue with simultaneous processing of batches

@@ -58,7 +58,8 @@ cTables <- function(x, type="", treat) {
         for (i in 2:length(x)) {out <- rbind(out, x[[i]])}
     }
     if (nrow(treat) != nrow(out) || !all(paste(treat$Batch, treat$Barcode) %in% paste(out$Batch, out$Barcode))) {
-        stop("Rows in combined ", type, " table (", nrow(out), ") do not match rows in treatments file (", nrow(treat), ")")
+        stop("Rows in combined ", type, " table (n=", nrow(out), 
+            ") do not match rows in treatments table (n=", nrow(treat), "). Check treatTab!")
     }
     key <- merge(data.frame(Sample = paste(treat$Batch, treat$Barcode, sep="."), treatInd = 1:nrow(treat)),
                  data.frame(Sample = paste(out$Batch, out$Barcode, sep="."), outInd = 1:nrow(out)),
@@ -75,22 +76,25 @@ cTables <- function(x, type="", treat) {
 depEvents <- function(x, ev) {
 ### Re-normalize dependent events by the PSI of their parent
     dep <- sapply(ev$Name[which(!is.na(ev$Relative))], grep, x=names(x))
-    parName <- ifelse(is.na(ev$Relative), as.character(ev$Gene), paste(ev$Gene, ev$Relative, sep="."))
-    if (!all(parName[which(!is.na(ev$Relative))] %in% names(x))) {
-        stop("Parent event not found for ", paste(parName[!(parName %in% names(x))], collapse=", "))
-    }
-    par <- sapply(parName[which(!is.na(ev$Relative))], grep, x=names(x))
-    for (i in 1:length(dep)) {
-        new <- round(x[,dep[i]] * x[,par[i]] / 100, 2)
-        if (any((new < 0 | new > 100) & !is.na(new)) & !all(is.na(new))) {
-            warning("Relative PSI outside range for event ", names(x)[dep[i]], ": ", min(new, na.rm=T),
-                    " - ", max(new, na.rm=T))
+
+    if (length(dep) > 0)  {
+        parName <- ifelse(is.na(ev$Relative), as.character(ev$Gene), paste(ev$Gene, ev$Relative, sep="."))
+        if (!all(parName[which(!is.na(ev$Relative))] %in% names(x))) {
+            stop("Parent event not found for ", paste(parName[!(parName %in% names(x))], collapse=", "))
         }
-        new[new < 0]    <-   0
-        new[new > 100]  <- 100
-        x[,dep[i]] <- new
-    }    
-    x
+        par <- sapply(parName[which(!is.na(ev$Relative))], grep, x=names(x))
+        for (i in 1:length(dep)) {
+            new <- round(x[,dep[i]] * x[,par[i]] / 100, 2)
+            if (any((new < 0 | new > 100) & !is.na(new)) & !all(is.na(new))) {
+                warning("Relative PSI outside range for event ", names(x)[dep[i]], ": ", min(new, na.rm=T),
+                        " - ", max(new, na.rm=T))
+            }
+            new[new < 0]    <-   0
+            new[new > 100]  <- 100
+            x[,dep[i]] <- new
+        }    
+    }
+    return(x)
 }
 
 
