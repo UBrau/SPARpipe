@@ -9,7 +9,6 @@
 ### U. Braunschweig 2017-2020
 ### Changes: - Sanity checks for input files
 
-
 cArgs <- commandArgs(TRUE)
 
 ## Check dependencies
@@ -628,9 +627,9 @@ if (any(shortF$short > 0) | any(shortR$short > 0)) {
     write.table(fa.rv, file=paste(opt$juncOut, "_rev.fa", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
     ## Amplicon FASTA file
-    fa.amp <- character(2 * length(amplicons))
-    fa.amp[seq(1, length(fa.amp) - 1, 2)] <- paste0(">", sapply(amplicons, "[[", 1))
-    fa.amp[seq(2, length(fa.amp),     2)] <- sapply(amplicons, "[[", 2)
+    fa.amp <- character(2 * length(unlist(sapply(amplicons, "[[", 1))))
+    fa.amp[seq(1, length(fa.amp) - 1, 2)] <- paste0(">", unlist(sapply(amplicons, "[[", 1)))
+    fa.amp[seq(2, length(fa.amp),     2)] <- unlist(sapply(amplicons, "[[", 2))
 
     write.table(fa.amp, file=paste(opt$juncOut, "_amplicons.fa", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
