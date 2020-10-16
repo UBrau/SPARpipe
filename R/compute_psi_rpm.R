@@ -1,12 +1,8 @@
 #!/usr/bin/env Rscript
 ### Tabulate coverage of multiplex samples and compute PSI and RPM
 ###
-### K. Ha 2013-11-08
-### Modified U. Braunschweig 10/2014 and 04/2017
-### Changes: - Removed calculation of legacy quality values
-###          - 'up' and 'dn' renamed to 'fw' and 'rv' throughout
-###          - changed order of columns in output
-###          - allow parallel processing
+### K. Ha & U. Braunschweig 2013-2020
+### Changes: - Deal with setups w/o alternative exons/elements
 
 
 libMissing <- !require(optparse, quietly=T)
@@ -17,7 +13,6 @@ args <- commandArgs(FALSE)
 
 option.list <- list(
     make_option(c("-e", "--events"), type="character",
-        default="/home/blencowe/blencowe31/ulrich/proj/SPARseq.HongAndy.neural.170202/seq/junctions/Events108_11-101_UB170417.tab",
         help="AS event junction table [%default]"),
     make_option(c("-c", "--cores"),  default=1,
         help="Number of CPUs [%default]")
@@ -70,9 +65,17 @@ compute_rpm <- function(m) {
     
     newm <- m
     newm[,c("Reads.Fw", "Reads.Rv", "RPM.Fw", "RPM.Rv", "RPM")] <- NA
-    
-    newm$Reads.Fw <- rowSums(newm[,cUp], na.rm=T)
-    newm$Reads.Rv <- rowSums(newm[,cDn], na.rm=T)
+    if (length(cUp) > 1) {
+        newm$Reads.Fw <- rowSums(newm[,cUp], na.rm=T)
+    } else {
+        newm$Reads.Fw <- newm[,cUp]
+    }
+    if (length(cDn) > 1) {
+        newm$Reads.Rv <- rowSums(newm[,cDn], na.rm=T)
+    } else {
+        newm$Reads.Rv <- newm[,cDn]
+    }
+
     newm <- within(newm,
                    {
                        RPM.Fw <- 1000000 * Reads.Fw / total.up
@@ -90,8 +93,20 @@ compute_rpm <- function(m) {
 }
 
 compute_psi <- function(m) {  
-    newm <- m
-    newm[,c("PSI.Fw", "SD.Fw","RPM.Fw","Reads.Fw","PSI.Rv", "SD.Rv", "RPM.Rv","Reads.Rv","PSI","Counts.InEx","RPM")] <- NA
+    newm <- data.frame(m, 
+                       data.frame(PSI.Fw      = NA,
+                                  SD.Fw       = NA,
+				  RPM.Fw      = NA,
+                                  Reads.Fw    = NA,
+				  PSI.Rv      = NA,
+ 				  SD.Rv       = NA,
+				  RPM.Rv      = NA,
+				  Reads.Rv    = NA,
+				  PSI         = NA,
+				  Counts.InEx = NA,
+				  RPM         = NA
+				  )
+			)
 
     upJunctions <- strsplit(as.character(newm$JunctionsFw), split=",")
     dnJunctions <- strsplit(as.character(newm$JunctionsRv), split=",")
@@ -106,64 +121,67 @@ compute_psi <- function(m) {
     allUpJunctions <- grep("Counts\\.fw", names(newm), value=T)
     allDnJunctions <- grep("Counts\\.rv", names(newm), value=T)
 
-    ## count inclusion and exclusion reads
-    inclUp <- sapply(1:nrow(newm), FUN=function(x) {
-        if (is.na(upJunctions[[x]][1])) {
-            return(NA)
-        } else {
-            return(sum(newm[x,upJunctions[[x]]]))
-        }
-    })
-    inclDn <- sapply(1:nrow(newm), FUN=function(x) {
-        if (is.na(dnJunctions[[x]][1])) {
-            return(NA)
-        } else {
-            return(sum(newm[x,dnJunctions[[x]]]))
-        }
-    })
-    exclUp <- sapply(1:nrow(newm), FUN=function(x) {
-        if (is.na(upJunctions[[x]][1])) {
-            return(NA)
-        } else {
-            return(sum(newm[x,setdiff(allUpJunctions, upJunctions[[x]])], na.rm=T))
-        }
-    })
-    exclDn <- sapply(1:nrow(newm), FUN=function(x) {
-        if (is.na(dnJunctions[[x]][1])) {
-            return(NA)
-        } else {
-            return(sum(newm[x,setdiff(allDnJunctions, dnJunctions[[x]])], na.rm=T))
-        }
-    })
+    if (!all(sapply(upJunctions, length) == 1 && sapply(dnJunctions, length) == 1)) {  # there are PSI to calculate
+        ## count inclusion and exclusion reads
+        inclUp <- sapply(1:nrow(newm), FUN=function(x) {
+            if (is.na(upJunctions[[x]][1])) {
+                return(NA)
+            } else {
+                return(sum(newm[x,upJunctions[[x]]]))
+            }
+        })
+
+        inclDn <- sapply(1:nrow(newm), FUN=function(x) {
+            if (is.na(dnJunctions[[x]][1])) {
+                return(NA)
+            } else {
+                return(sum(newm[x,dnJunctions[[x]]]))
+            }
+        })
+        exclUp <- sapply(1:nrow(newm), FUN=function(x) {
+            if (is.na(upJunctions[[x]][1])) {
+                return(NA)
+            } else {
+                return(sum(newm[x,setdiff(allUpJunctions, upJunctions[[x]])], na.rm=T))
+            }
+        })
+        exclDn <- sapply(1:nrow(newm), FUN=function(x) {
+            if (is.na(dnJunctions[[x]][1])) {
+                return(NA)
+            } else {
+                return(sum(newm[x,setdiff(allDnJunctions, dnJunctions[[x]])], na.rm=T))
+            }
+        })
+
+        newm$PSI.Fw      <- inclUp / (inclUp + exclUp)
+        newm$PSI.Rv      <- inclDn / (inclDn + exclDn)
+        newm$PSI         <- rowMeans(newm[,c("PSI.Fw","PSI.Rv")], na.rm=T)
+        newm$SD.Fw       <- get_beta_sd(inclUp, exclUp)
+        newm$SD.Rv       <- get_beta_sd(inclDn, exclDn)
+        newm$Counts.InEx <- get_counts.IE(inclUp + exclUp, inclDn + exclDn, newm$PSI)
     
-    newm$PSI.Fw      <- inclUp / (inclUp + exclUp)
-    newm$PSI.Rv      <- inclDn / (inclDn + exclDn)
-    newm$PSI         <- rowMeans(newm[,c("PSI.Fw","PSI.Rv")], na.rm=T)
-    newm$SD.Fw       <- get_beta_sd(inclUp, exclUp)
-    newm$SD.Rv       <- get_beta_sd(inclDn, exclDn)
-    newm$Counts.InEx <- get_counts.IE(inclUp + exclUp, inclDn + exclDn, newm$PSI)
-    
-    newm <- within(newm,
-                   {
-                       PSI.Fw <- round(PSI.Fw * 100, 2)
-                       PSI.Rv <- round(PSI.Rv * 100, 2)
-                       PSI    <- round(PSI    * 100, 2)
-                       PSI[is.na(PSI)] <- NA
-                   })
-    
+        newm <- within(newm,
+                       {
+                           PSI.Fw <- round(PSI.Fw * 100, 2)
+                           PSI.Rv <- round(PSI.Rv * 100, 2)
+                           PSI    <- round(PSI    * 100, 2)
+                           PSI[is.na(PSI)] <- NA
+                       })
+    }
+
     return(newm)
 }
 
 main <- function(file) {
     m <- read.table(file, sep="\t", col.names=c("Gene", "Junction", "Label", "Counts"))
     m <- m[,c(1,2,4)]
+
     newm <- reshape(m, v.names="Counts", idvar="Gene", timevar="Junction",
                     direction="wide")
     newm <- merge(AS.types, newm, by=1)  # duplicate lines with multiple events
     newm$Event <- ifelse(is.na(newm$Event), yes=as.character(newm$Gene), no=paste(newm$Gene, newm$Event, sep="."))
     newm <- compute_psi(newm)
     newm <- compute_rpm(newm)
-    
     newm <- within(newm,
                    {
                        PSI.Fw <- sprintf("%.2f", PSI.Fw)
@@ -175,7 +193,9 @@ main <- function(file) {
                        SD.Rv  <- sprintf("%.2f", SD.Rv)
                        RPM    <- sprintf("%.2f", RPM)
                    })
-    outfile <- file.path(outDir, "welldata", paste(sub("(.*W[0-9]+[^.]+).+", "\\1", basename(file)), "RAW.tab", sep="."))
+
+    outfile <- file.path(outDir, "welldata", 
+                   paste(sub("(.*W[0-9]+[^.]+).+", "\\1", basename(file)), "RAW.tab", sep="."))
     write.table(newm, file=outfile, sep="\t", quote=F, row.names=F)
     cat("Converted", file, "to", outfile, "\n")
 }

@@ -6,11 +6,8 @@
 ### The string in the 'structure' column defines which elements are cassette exons, alternative ss,
 ### introns and 'constitutive' introns and for which elements PSI is requested.
 ###
-### U. Braunschweig 03/2020
-### Changes: - Check that primers actually match somewhere
-###          - Now tolerates lowercase letters in primers or junction elements - will be uppercased
-###          - Added output of amplicon FASTA
-
+### U. Braunschweig 2017-2020
+### Changes: - Sanity checks for input files
 
 cArgs <- commandArgs(TRUE)
 
@@ -25,14 +22,18 @@ if (libMissing) {
 ## Capture input
 opt.list <- list(
     make_option(c("-e", "--eventFile"),   action="store", type="character",
-                help="Path of CSV file. Must contain columns event, gene, structure, chrom, strand,
-                and .start/.end/.seq for C1, C2, and E1...En (filled starting from the lowest)"),
+                help="Path of CSV file. Must contain columns gene, event, structure, chrom, strand
+                and start, end and .start/.end/.seq for C1, C2, and alternative segments E1...En
+                (filled starting from the lowest) if applicable.
+                The string in the 'structure' column defines which elements are cassette exons,
+                alternative ss, introns and 'constitutive' introns and for which elements PSI is requested.
+                See https://github.com/UBrau/SPARpipe."),
     make_option(c("-p", "--primerFile"),  action="store", type="character",
                 help="Path of CSV file. Must contain columns event, seqF, seqR (including adapters, 5'-3')"),
     make_option("--adaptF",                action="store", default="ACACTCTTTCCCTACACGACGCTCTTCCGATCT",
-                help="Common adapter sequence in fwd primers, 5'-3'"),
+                help="Common adapter sequence in fwd primers, 5'-3' [default: %default]"),
     make_option("--adaptR",                action="store", default="GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT",
-                help="Common adapter sequence in rev primers, 5'-3'"),
+                help="Common adapter sequence in rev primers, 5'-3' [default: %default]"),
     make_option(c("-l", "--readLength"),  action="store", default=150,
                 help="Read length used in sequencing run [default: %default]"),
     make_option("--trimR1.5",             action="store", default=0,
@@ -51,7 +52,15 @@ opt.list <- list(
                 help="Base name for junction library FASTA output [default: %default]")
 )
 
-opt <- parse_args(OptionParser(option_list=opt.list), args=cArgs)
+opt <- parse_args(OptionParser(
+    usage = "Generate junction and amplicon FASTA files for SPAR-Seq screen based on a CSV file
+       with coordinates and sequences of every exon element in the amplicon and a primer CSV file.
+       Junctions will also be checked for minimum Hamming distance to other junctions in the same gene
+       as well as all other junctions, separately for fwd and rev junctions. 
+       Also produced are BED files and an event table that will be required in step 3_combine.pl.
+
+           MakeJunctionsFASTA.R -e EVENTFILE -p PRIMERFILE [OPTIONS]",
+    option_list=opt.list), args=cArgs)
 
 
 ### Function definitions
@@ -90,10 +99,32 @@ if (is.null(opt$primerFile))      {stop("PRIMERFILE must be provided")}
 if (!file.exists(opt$eventFile))  {stop("Could not find EVENTFILE, file: ", opt$eventFile)}
 if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt$primerFile)}
 
+
+## Check eventFile
 events <- read.csv(opt$eventFile, as.is=T)
+minEventCols <- c("gene","event","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
+if (!all(minEventCols %in% names(events))) {
+    stop("eventFile must contain at least columns ", paste(minEventCols, collapse=", "))
+}
+nameFail <- grepl("_", events$event)
+if (any(nameFail)) {
+    stop("Event(s) ", paste(events$event[nameFail], collapse=", "), " contain(s) '_'.")
+}
+duploEvents <- unique(events$event[duplicated(events$event)])
+if (length(duploEvents) > 0) {
+    stop("Duplicated event designation(s): ", paste(duploEvents, collapse=", "))
+}
+
 for (i in grep("\\.seq", names(events))) {events[,i] <- toupper(events[,i])}
 
+
+## Check primerFile
 primers <- read.csv(opt$primerFile, as.is=T)
+minPrimerCols <- c("event","seqF","seqR")
+if (!all(minPrimerCols %in% names(primers))) {
+    stop("primerFile must contain at least columns ", paste(minPrimerCols, collapse=", "))
+}
+
 if (!all(events$event == primers$event)) {stop("Columns 'event' in events and primers files do not match")}
 
 libMissing <- !require("Biostrings", quietly=T)
@@ -104,7 +135,6 @@ primers$seqR <- toupper(gsub(" ","",primers$seqR))
 primers$specF <- sapply(as.character(primers$seqF), FUN=function(x) {strsplit(x, split=opt$adaptF)[[1]][2]})
 primers$specR <- sapply(as.character(primers$seqR), FUN=function(x) {strsplit(x, split=opt$adaptR)[[1]][2]})
 primers$specR <- as.character(reverseComplement(DNAStringSet(primers$specR)))
-### TODO: Sanity checks in events and primers file
 
 
 ## Check if all primers match their C1 or C2 sequences, and where they map
@@ -144,7 +174,6 @@ combi$match.R = lapply(1:nrow(events), FUN=function(x) {
 ## Make object containing all possible sequence elements
 ## Generate the snippet of C1 after and of C2 before and including the primer binding site.
 ## Since some primers map across the junctions, first obtain the snippet distal of the primer to subtract.
-#combi <- list(gene = events$event)
 
 combi$C1 <- sapply(1:nrow(events), FUN=function(x) {
     tmp  <- setdiff(as.character(events[x, grep("E[0-9]+\\.seq", names(events))]), NA)
@@ -166,21 +195,25 @@ combi$E <- lapply(1:nrow(events), FUN=function(x) {
 })
 
 
-## Check if there are still at least 4 nt left of C1 and C2 after 5'-trimming
+## Check if there are still at least minCnt nt left of C1 and C2 after 5'-trimming
 trim5len.C1 <- sapply(combi$C1, nchar) - opt$trimR1.5
 trim5len.C2 <- sapply(combi$C2, nchar) - opt$trimR2.5
 
 if (all(trim5len.C1 >= opt$minCnt)) {
-    cat("Requested R1 5' trimming OK. You could trim a max of", min(sapply(combi$C1, nchar)) - opt$minCnt, "nt.\n")
+    cat("Requested R1 5' trimming OK. You could trim a max of", min(sapply(combi$C1, nchar)) - opt$minCnt,
+        "nt to maintain C1 overlap.\n")
 } else {
     stop("Trimming of ", opt$trimR1.5, " nt at R1 results in too short C1 for ",
-        paste(events$event[trim5len.C1 < opt$minCnt], collapse=", "), ". Max is ", min(sapply(combi$C1, nchar)) - opt$minCnt, ".")
+         paste(events$event[trim5len.C1 < opt$minCnt], collapse=", "), ". Max is ",
+         min(sapply(combi$C1, nchar)) - opt$minCnt, ".")
 }
 if (all(trim5len.C2 >= opt$minCnt)) {
-    cat("Requested R2 5' trimming OK. You could trim a max of", min(sapply(combi$C2, nchar)) - opt$minCnt, "nt.\n")
+    cat("Requested R2 5' trimming OK. You could trim a max of", min(sapply(combi$C2, nchar)) - opt$minCnt,
+        "nt to maintain C2 overlap.\n")
 } else {
     stop("Trimming of ", opt$trimR2.5, " nt at R2 results in too short C2 for ",
-        paste(events$event[trim5len.C2 < opt$minCnt], collapse=", "), ". Max is ", min(sapply(combi$C2, nchar)) - opt$minCnt, ".")
+         paste(events$event[trim5len.C2 < opt$minCnt], collapse=", "), ". Max is ",
+         min(sapply(combi$C2, nchar)) - opt$minCnt, ".")
 }
 
 
@@ -594,9 +627,9 @@ if (any(shortF$short > 0) | any(shortR$short > 0)) {
     write.table(fa.rv, file=paste(opt$juncOut, "_rev.fa", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
     ## Amplicon FASTA file
-    fa.amp <- character(2 * length(amplicons))
-    fa.amp[seq(1, length(fa.amp) - 1, 2)] <- paste0(">", sapply(amplicons, "[[", 1))
-    fa.amp[seq(2, length(fa.amp),     2)] <- sapply(amplicons, "[[", 2)
+    fa.amp <- character(2 * length(unlist(sapply(amplicons, "[[", 1))))
+    fa.amp[seq(1, length(fa.amp) - 1, 2)] <- paste0(">", unlist(sapply(amplicons, "[[", 1)))
+    fa.amp[seq(2, length(fa.amp),     2)] <- unlist(sapply(amplicons, "[[", 2))
 
     write.table(fa.amp, file=paste(opt$juncOut, "_amplicons.fa", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
