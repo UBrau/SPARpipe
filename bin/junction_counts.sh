@@ -3,8 +3,8 @@
 FILE=$1
 JUNC=$2
 
-BASE=`basename $FILE _Fwd.sorted.bam`
-#BASE=`basename $BASE _R1.sorted.bam`
+BASE=`basename $FILE _Fwd.bam`
+#BASE=`basename $BASE _R1.bam`
 DIR=`dirname $FILE`
 DIR=`dirname $DIR`
 
@@ -17,8 +17,8 @@ bedtools coverage -counts -a ${JUNC}_fwd.bed -b $FILE \
     | sed 's/dn/dn_/' - \
     > ${DIR}/counts/${BASE}.counts.tab
 
-#bedtools coverage -counts -a ${JUNC}_rev.bed -b `dirname $FILE`/${BASE}_R2.sorted.bam \
-bedtools coverage -counts -a ${JUNC}_rev.bed -b `dirname $FILE`/${BASE}_Rev.sorted.bam \
+#bedtools coverage -counts -a ${JUNC}_rev.bed -b `dirname $FILE`/${BASE}_R2.bam \
+bedtools coverage -counts -a ${JUNC}_rev.bed -b `dirname $FILE`/${BASE}_Rev.bam \
     | cut -f 1,4 - \
     | awk -F "\t" '{OFS="\t"; split($1,n,"_"); print n[1], n[2], n[3], $2}' - \
     | sed 's/up/up_/' - \

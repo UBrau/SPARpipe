@@ -1,7 +1,7 @@
 #!/usr/bin/env perl                                                                                                                                     
-### U. Braunschweig, 04/2017
+### U. Braunschweig 2017-2020
 ###
-### Changes: New option --batch
+### Changes: - Removed option --bin
 
 use strict;
 use Getopt::Long;
@@ -13,7 +13,6 @@ my $evTab;
 my $treatTab;
 my $outDir;
 my $cores  = 1;
-my $bin;
 
 # Initialize
 my $path = abs_path($0);
@@ -26,7 +25,6 @@ GetOptions("help"        => \$helpFlag,
            "eventTab=s"  => \$evTab,
            "treatTab=s"  => \$treatTab,
            "outDir:s"    => \$outDir,
-           "bin:s"       => \$bin,
            "cores:i"     => \$cores,
     );
 
@@ -35,8 +33,7 @@ GetOptions("help"        => \$helpFlag,
 if ($helpFlag | !defined($evTab)| !defined($treatTab)| !defined($juncBase) | !scalar(@ARGV) | defined($ARGV[1])) {
   die "
 *** Extract raw PSI, RPM and pseudocounts from aligned SPAR-seq data ***
-Input:  Output directory containing folder /map with BAM files
-        (*sorted.bam) produced by 2_align_reads.pl
+Input:  Output directory containing folder /map with BAM files produced by 2_align_reads.pl
 Output: Tables with read counts per junction, one per sample
 
 Usage: $0 --juncBase JUNCBASE --eventTab FILE --treatTab FILE DIR
@@ -46,17 +43,15 @@ Options:
                      junction name as chromosome, 0 as start, junction length as end.
          --eventTab  Event table specifying which junctions to use etc. Must contain columns
                      Gene, Event, Label, Relative, JunctionsFw, and JunctionsRv.
+                     This was generated using MatchPrimers.R.
          --treatTab  Treatment table specifying all samples in the project, including replicates. 
                      Must contain columns ID, Replicate, Batch, Barcode.
-        [--bin]      Directory containing scripts [default: $path]
         [--cores]    Computing cores [default: $cores]
 
 ";
 }
 
 # Check input
-$bin = $path unless (defined $bin);
-
 my $outDir = $ARGV[0];
 die "Folder /map not found in $outDir\n" unless (-e $outDir."/map");
 die "Event table not found\n" unless (-e $evTab);
@@ -69,7 +64,7 @@ $outDir =~ s/\/$//;
 
 # Find BAM files
 opendir(DIR, $outDir."/map") or die;
-my @files = grep(/.*sorted\.bam$/, readdir(DIR));
+my @files = grep(/.*\.bam$/, readdir(DIR));
 closedir(DIR);
 
 my %BATCHES;
@@ -83,12 +78,12 @@ my %RVF;
 my %UNQ;
 
 foreach my $file (@files) {
-    if ($file =~ /.+Fwd.sorted.bam/) {
-        $file =~ m/(.+W[0-9]+)_FwBC.+/;
+    if ($file =~ /.+Fwd.bam/) {
+        $file =~ m/(.+W[0-9]+)_.+/;
         $FWF{$1} = $file;
 	$UNQ{$1} = 1
-    } elsif ($file =~ /.+Rev.sorted.bam/) {
-        $file =~ m/(.+W[0-9]+)_FwBC.+/;
+    } elsif ($file =~ /.+Rev.bam/) {
+        $file =~ m/(.+W[0-9]+)_.+/;
         $RVF{$1} = $file;
 	$UNQ{$1} = 1
     }
@@ -105,7 +100,7 @@ foreach my $sample (sort keys %UNQ) {
 	next;
     }
     
-    system "$bin/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
+    system "$path/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
 	die "[3] Error when getting counts for $sample\n";
 }
 print "[3] Done getting junction counts\n";
@@ -113,7 +108,7 @@ print "[3] Done getting junction counts\n";
 
 # Get PSI, RPM, pseudo counts etc. per well
 mkdir $outDir."/welldata" unless (-e $outDir."/welldata");
-system "$bin/R/compute_psi_rpm.R -c $cores $outDir" and
+system "$path/R/compute_psi_rpm.R -c $cores $outDir -e $evTab" and
     die "[3] Error when calculating PSI etc.\n";
 print "[3] Done computing PSI\n";
 
@@ -121,7 +116,7 @@ print "[3] Done computing PSI\n";
 # Merge tables
 mkdir $outDir."/batchdata" unless (-e $outDir."/batchdata");
 foreach my $batch (sort keys %BATCHES) {
-    system "$bin/R/merge_tables.R -b $batch -c $cores $outDir" and
+    system "$path/R/merge_tables.R -b $batch -c $cores $outDir" and
 	die "[3] Error when merging tables\n";
     print "[3] Done merging tables for batch $batch\n";
 }
@@ -129,6 +124,6 @@ foreach my $batch (sort keys %BATCHES) {
 
 # Merge batches and reconcile with expected samples and events
 mkdir $outDir."/raw" unless (-e $outDir."/raw");
-system "$bin/R/combine_batches.R -e $evTab -t $treatTab $outDir" and
+system "$path/R/combine_batches.R -e $evTab -t $treatTab $outDir" and
     die "[3] Error when creating output tables\n";
 print "[3] Done creating output tables\n";
