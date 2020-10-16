@@ -45,7 +45,7 @@ Options:
                      derived from the Junctions library, where every junction has a line with
                      junction name as chromosome, 0 as start, junction length as end.
          --eventTab  Event table specifying which junctions to use etc. Must contain columns
-                     Gene, Event, Label, Relative, JunctionsFw, and JunctionsR.
+                     Gene, Event, Label, Relative, JunctionsFw, and JunctionsRv.
          --treatTab  Treatment table specifying all samples in the project, including replicates. 
                      Must contain columns ID, Replicate, Batch, Barcode.
         [--bin]      Directory containing scripts [default: $path]

@@ -1,5 +1,5 @@
 #-v!/bin/bash
-# Kevin Ha and Ulrich Braunschweig, 2013-2017
+# Kevin Ha and Ulrich Braunschweig, 2013-2020
 
 FILE=$1     # (potentially gzipped) FASTQ file
 GENOME=$2   # bowtie index with junction library
@@ -13,10 +13,10 @@ BIN=$8
 mkdir -vp $OUTDIR
 
 # uncompress file if compressed
-unpigz -vf -p $CORES $FILE
 INDIR=`dirname $FILE`
-FILE=`basename $FILE .gz`
-BASE=`basename $FILE .fq`
+FILE=`basename $FILE`
+BASE=`basename $FILE .gz`
+BASE=`basename $BASE .fq`
 BASE=`basename $BASE .fastq`
 
 # Bowtie options
@@ -29,22 +29,19 @@ BASE=`basename $BASE .fastq`
 # --un      unmapped reads
 # --max     alignments exceeding limit set by -m to <filename>
 # --al      reads with at least one alignment report to <filename>
-cat $INDIR/$FILE | bowtie -t --sam $BTOPT -p $CORES \
+
+bowtie --sam $BTOPT -p $CORES \
     --trim3 $TRIM_3 --trim5 $TRIM_5 \
     --max $OUTDIR/$BASE.multi.fq \
     --un $OUTDIR/$BASE.nomap.fq \
-    $GENOME - | samtools view -b -o $OUTDIR/$BASE.bam && \
-
-# recompress file
-pigz -vf -9 -p $CORES $INDIR/$FILE
+    $GENOME $INDIR/$FILE | samtools view -b -o $OUTDIR/$BASE.unsorted.bam && \
 
 # Sort BAM file
-samtools sort $OUTDIR/$BASE.bam -o $OUTDIR/$BASE.sorted.bam && \
-
+samtools sort $OUTDIR/$BASE.unsorted.bam -o $OUTDIR/$BASE.bam && \
 pigz -vf -9 -p $CORES $OUTDIR/$BASE.*.fq
 
-rm -v $OUTDIR/$BASE.bam
+rm -v $OUTDIR/$BASE.unsorted.bam
 
-$BIN/get_unmapped_stats.sh $OUTDIR/$BASE.sorted.bam
+$BIN/get_unmapped_stats.sh $OUTDIR/$BASE.bam
 
 echo End: `date`
