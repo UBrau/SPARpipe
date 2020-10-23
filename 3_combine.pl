@@ -107,12 +107,14 @@ print "[3] Done getting junction counts\n";
 
 
 # Generate files for expression analysis
+mkdir $outDir."/expression" unless (-e $outDir."/expression");
 system "$path/R/combine_reads_expression.R -e $evTab -t $treatTab -d fwd -c $cores $outDir" and
     die "[3] Error when combining reads for expression\n";
 print "[3] Done generating tables for expression\n";
 
 
 # Get PSI, RPM, pseudo counts etc. per well
+mkdir $outDir."/welldata" unless (-e $outDir."/welldata");
 system "$path/R/compute_psi_rpm.R -c $cores $outDir -e $evTab" and
     die "[3] Error when calculating PSI etc.\n";
 print "[3] Done computing PSI\n";
