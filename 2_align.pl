@@ -65,6 +65,15 @@ open (my $logFH, ">>", $logFile)
 
 # Run bowtie on each file
 foreach my $input (@ARGV) { 
+    ## Check conformity of file names
+    my $volume;
+    my $dirs;
+    my $sfile;
+    ($volume,$dirs,$sfile) = File::Spec->splitpath($input);
+
+    $sfile =~ /^[^_]+_W[0-9]+.*_(Fwd|Rev)\.(fq|fastq)(\.gz|)$/ ||
+	die "Input file name $sfile is misshapen. Must match pattern ^[^_]+_W[0-9]+.*_(Fwd|Rev)\.(fq|fastq)(\.gz|)$\n";
+    
     my $cmdline = "$path/$0 --junc=$junc --outDir=$outDir --cores=$cores --trim5=$trim5 --trim3=$trim3";
 
     $cmdline .= " $btopt $input";
@@ -72,10 +81,6 @@ foreach my $input (@ARGV) {
     system "$path/bin/run_bowtie.sh $input $junc ".$outDir."/map $cores $trim5 $trim3 \"$btopt\" $path/bin" and
 	die "[2] Error during bowtie mapping of $input\n";
 
-    my $volume;
-    my $dirs;
-    my $sfile;
-    ($volume,$dirs,$sfile) = File::Spec->splitpath($input);
     $sfile =~ s/\.(fastq|fq).*//;
     my $ssize = -s "$outDir/map/$sfile.stats.txt";
     if ($ssize > 0) {
