@@ -1,0 +1,13 @@
+../../accessories/MakeJunctionsFASTA.R -e amplicons/JunctionLibraryElements_test200423.csv -p primers/PrimerChecking_SPARseq.optimized.COVD19_200423.csv -l 75
+
+mkdir junctions/bowtie_indices
+bowtie-build junctions/Junctions_fwd.fa junctions/bowtie_indices/Junctions_fwd
+bowtie-build junctions/Junctions_rev.fa junctions/bowtie_indices/Junctions_rev
+
+
+for f in fastq_files/200423_W*Fwd.fq.gz; do ../../2_align.pl --junc=amplicons/bowtie_indices/Junctions_fwd --outDir=test_align --trim3=1 --btopt="--best -n 3 -k 1 -m 1" ${f}; done
+for f in fastq_files/200423_W*Rev.fq.gz; do ../../2_align.pl --junc=amplicons/bowtie_indices/Junctions_rev --outDir=test_align --trim3=1 --btopt="--best -n 3 -k 1 -m 1" ${f}; done
+
+../../3_combine.pl --juncBase=amplicons/Junctions --eventTab=amplicons/EventJunctions.tab --treatTab=SampleTable.tab test_align
+
+### Combine into one read table
