@@ -71,7 +71,6 @@ foreach my $input (@ARGV) {
     my $sfile;
     ($volume,$dirs,$sfile) = File::Spec->splitpath($input);
 
-#    $sfile =~ /^[^_]+_W[0-9]+.*_[Fwd|Rev]\.[fastq|fq]/ ||
     $sfile =~ /^[^_]+_W[0-9]+.*_(Fwd|Rev)\.(fq|fastq)(\.gz|)$/ ||
 	die "Input file name $sfile is misshapen. Must match pattern ^[^_]+_W[0-9]+.*_(Fwd|Rev)\.(fq|fastq)(\.gz|)$\n";
     
