@@ -3,6 +3,8 @@ SPARpipe
 
 **Tools to help design a SPAR-seq screen and extract results from raw sequencing data**
 
+**_NOTE: If you are looking for the application to detection of SAR!S-CoV-2 (Aynaud, Hernandez, Barucu et al., Nature Communications 2021), please checkout the 'COVID-19' branch_**
+
 Few bells and whistles, and still under development. Comes strictly 'as-is' - use at your own risk.
 
 SPAR-seq is a strategy to obtain a sequencing-based readout for a selected set of RNA processing
