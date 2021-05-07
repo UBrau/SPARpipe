@@ -53,6 +53,7 @@ Workflow
    * E1, E2, ...: alternative exons. Capital E for segments for which a score shall be produced.
    * [3] : Suffix to elements that are due to an alternative 3' splice site.
    * [5] : Same, for 5' splice site.
+   * [c] : Internal exon is constitutive.
    * [i] : Suffix for intron retention event
    * `-` and `:` indicate connections via a splice and adjacent elements, respectively.
 
