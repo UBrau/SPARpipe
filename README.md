@@ -3,6 +3,8 @@ SPARpipe
 
 **Tools to help design a SPAR-seq screen and extract results from raw sequencing data**
 
+**_NOTE: If you are looking for the application to detection of SAR!S-CoV-2 (Aynaud, Hernandez, Barucu et al., Nature Communications 2021), please checkout the 'COVID-19' branch_**
+
 Few bells and whistles, and still under development. Comes strictly 'as-is' - use at your own risk.
 
 SPAR-seq is a strategy to obtain a sequencing-based readout for a selected set of RNA processing
@@ -51,6 +53,7 @@ Workflow
    * E1, E2, ...: alternative exons. Capital E for segments for which a score shall be produced.
    * [3] : Suffix to elements that are due to an alternative 3' splice site.
    * [5] : Same, for 5' splice site.
+   * [c] : Internal exon is constitutive.
    * [i] : Suffix for intron retention event
    * `-` and `:` indicate connections via a splice and adjacent elements, respectively.
 
