@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 ### Given a table of forward and reverse event primers, check which ones would have a 3'-end
-### overlap of at least 4 nt with which others.
+### overlap of at least 5 nt with which others.
 ###
-### U. Braunschweig 01/2018
+### U. Braunschweig 2018-2021
 
 
 cArgs <- commandArgs(TRUE)
@@ -38,7 +38,7 @@ revcomp <- function(x) {
 if (is.null(opt$primerFile))      {stop("PRIMERFILE must be provided")}
 if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt$primerFile)}
 
-prim <- read.csv(opt$primerFile, as.is=T)
+prim <- read.csv(opt$primerFile, as.is=T, comment.char="#")
 missCol <- data.frame(col   = c("event", "seqF", "seqR"),
                       found = sapply(c("event", "seqF", "seqR"), FUN=function(x) {x %in% names(prim)})
                       )
@@ -107,8 +107,8 @@ if (is.null(opt$outName)) {
     outName <- opt$outName
 }
 write.csv(out, file=outName, row.names=F)
+cat("Wrote", outName, "\n")
 
 cat(length(which(seq$Nmatches > 0)), "primer(s) from",
-    length(unique(seq$event[which(seq$Nmatches > 0)])), "pair(s) have matches longer than", opt$minOl, "bp\n")
-
+    length(unique(seq$event[which(seq$Nmatches > 0)])), "pair(s) have matches of", opt$minOl, "or more bp\n")
 

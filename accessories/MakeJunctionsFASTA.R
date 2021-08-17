@@ -6,10 +6,18 @@
 ### The string in the 'structure' column defines which elements are cassette exons, alternative ss,
 ### introns and 'constitutive' introns and for which elements PSI is requested.
 ###
-### U. Braunschweig 2017-2020
-### Changes: - Sanity checks for input files
+### U. Braunschweig 2017-2021
 
 cArgs <- commandArgs(TRUE)
+
+## To do:
+##  - Consider moving from checking if the primers anneal in C1/C2,
+##    to ensuring that they align to all concatenated sequence variants
+##    (taking into account which elements are constant) but align to none
+##    if the C1/C2 is removed.
+##  - Deal with 3-primer IR events
+##  - Check that 'element' is used consistently instead of 'event'
+##  - Change downstream scripts to use event instead of gene   
 
 ## Check dependencies
 libMissing <- !require("optparse", quietly=T)
@@ -28,33 +36,41 @@ opt.list <- list(
                 The string in the 'structure' column defines which elements are cassette exons,
                 alternative ss, introns and 'constitutive' introns and for which elements PSI is requested.
                 See https://github.com/UBrau/SPARpipe."),
-    make_option(c("-p", "--primerFile"),  action="store", type="character",
+    make_option(c("-p", "--primerFile"),    action="store", type="character",
                 help="Path of CSV file. Must contain columns event, seqF, seqR (including adapters, 5'-3')"),
-    make_option("--adaptF",                action="store", default="ACACTCTTTCCCTACACGACGCTCTTCCGATCT",
+    make_option("--adaptF",                 action="store", default="ACACTCTTTCCCTACACGACGCTCTTCCGATCT",
                 help="Common adapter sequence in fwd primers, 5'-3' [default: %default]"),
-    make_option("--adaptR",                action="store", default="GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT",
+    make_option("--adaptR",                 action="store", default="GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT",
                 help="Common adapter sequence in rev primers, 5'-3' [default: %default]"),
-    make_option(c("-l", "--readLength"),  action="store", default=150,
+    make_option(c("-l", "--readLength"),    action="store", default=150,
                 help="Read length used in sequencing run [default: %default]"),
-    make_option("--trimR1.5",             action="store", default=0,
+    make_option("--trimR1.5",               action="store", default=0,
                 help="Nucleotides to trim off the 5'-end of fwd reads [default: %default]"),
-    make_option("--trimR1.3",             action="store", default=0,
+    make_option("--trimR1.3",               action="store", default=0,
                 help="Nucleotides to trim off the 3'-end of fwd reads [default: %default]"),
-    make_option("--trimR2.5",             action="store", default=0,
+    make_option("--trimR2.5",               action="store", default=0,
                 help="Nucleotides to trim off the 5'-end of rev reads [default: %default]"),
-    make_option("--trimR2.3",             action="store", default=0,
+    make_option("--trimR2.3",               action="store", default=0,
                 help="Nucleotides to trim off the 3'-end of rev reads [default: %default]"),
-    make_option("--minCnt",              action="store", default=4,
+    make_option("--minCnt",                 action="store", default=4,
                 help="Min nt of fwd/rev reads that must overlap with the C1/C2 [default: %default]"),
-    make_option("--eventOut",            action="store", default="EventJunctions.tab",
+    make_option("--eventOut",               action="store", default="EventJunctions.tab",
                 help="Name for event table output [default: %default]"),
-    make_option("--juncOut",             action="store", default="Junctions",
-                help="Base name for junction library FASTA output [default: %default]")
+    make_option("--juncOut",                action="store", default="Junctions",
+                help="Base name for junction library FASTA output [default: %default]"),
+    make_option("--overrideAmpliLen",       action="store_true", default="FALSE",
+                help="By default, script exits if any amplicon is shorter than the indicated (trimmed) read
+                length. Use this flag to override this behaviour."),
+    make_option("--overrideEventNameCheck", action="store_true", default="FALSE",
+                help="By default, event names indicated in EVENTFILE is checked for presence of '_'
+                (underscore character) to ensure compatibility with downstream steps.
+                Use this flag to override this behaviour.")
+
 )
 
 opt <- parse_args(OptionParser(
     usage = "Generate junction and amplicon FASTA files for SPAR-Seq screen based on a CSV file
-       with coordinates and sequences of every exon element in the amplicon and a primer CSV file.
+       with coordinates and sequences of every sequence element in the amplicon and a primer CSV file.
        Junctions will also be checked for minimum Hamming distance to other junctions in the same gene
        as well as all other junctions, separately for fwd and rev junctions. 
        Also produced are BED files and an event table that will be required in step 3_combine.pl.
@@ -102,24 +118,36 @@ if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt
 
 ## Check eventFile
 events <- read.csv(opt$eventFile, as.is=T)
+events <- events[!grepl("^#", events[,1]),]
 minEventCols <- c("gene","event","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
 if (!all(minEventCols %in% names(events))) {
     stop("eventFile must contain at least columns ", paste(minEventCols, collapse=", "))
 }
 nameFail <- grepl("_", events$event)
 if (any(nameFail)) {
-    stop("Event(s) ", paste(events$event[nameFail], collapse=", "), " contain(s) '_'.")
+    if (opt$overrideEventNameCheck) {
+        stop("Event(s) ", paste(events$event[nameFail], collapse=", "), " contain(s) '_' (underscore).")
+    } else {
+        warning("Event(s) ", paste(events$event[nameFail], collapse=", "),
+                " contain(s) '_' (underscore). Make sure event names are compatible with downstream steps.")
+    }
 }
 duploEvents <- unique(events$event[duplicated(events$event)])
 if (length(duploEvents) > 0) {
     stop("Duplicated event designation(s): ", paste(duploEvents, collapse=", "))
 }
 
-for (i in grep("\\.seq", names(events))) {events[,i] <- toupper(events[,i])}
+for (i in grep("\\.seq", names(events))) {
+    events[,i] <- gsub(" ", "", events[,i])
+    events[,i] <- ifelse(events[,i] == "", NA, toupper(events[,i]))
+    if (is.logical(events[,i])) {events[,i] <- as.character(events[,i])}
+}
 
 
 ## Check primerFile
 primers <- read.csv(opt$primerFile, as.is=T)
+primers <- primers[!grepl("^#", primers[,1]),]
+
 minPrimerCols <- c("event","seqF","seqR")
 if (!all(minPrimerCols %in% names(primers))) {
     stop("primerFile must contain at least columns ", paste(minPrimerCols, collapse=", "))
@@ -137,6 +165,27 @@ primers$specR <- sapply(as.character(primers$seqR), FUN=function(x) {strsplit(x,
 primers$specR <- as.character(reverseComplement(DNAStringSet(primers$specR)))
 
 
+## Check if all sequences of the elements specified by the structure code are present
+elem  <- lapply(1:nrow(events), FUN=function(x) {
+    strsplit(events$structure[x], split="[-:]")[[1]]
+})
+
+eName <- lapply(elem, gsub, pattern="\\[.\\]", replacement="", elem)
+
+eType <- lapply(elem, FUN=function(x) {
+        out <- ifelse(grepl("\\[", x), "", "A")
+        out[grepl("\\[3\\]", x)] <- "3"
+        out[grepl("\\[5\\]", x)] <- "5"
+        out[grepl("\\[i\\]", x)] <- "I"
+        out[grepl("\\[c\\]", x)] <- "C"
+        out[c(1, length(out))]   <- "C"
+        out
+})
+if (!all(unique(unlist(eType)) %in% c("C","A","3","5","I"))) {
+    stop("Element types can only be C1, C2, or intervening (E/e) with one of the indices [c], [3], [5] or [i]")
+}
+
+
 ## Check if all primers match their C1 or C2 sequences, and where they map
 combi <- list(event = events$event)
 combi$match.F = lapply(1:nrow(events), FUN=function(x) {
@@ -150,8 +199,10 @@ combi$match.F = lapply(1:nrow(events), FUN=function(x) {
     matched <- grep(primers$specF[x], tmp)
     if (length(matched) == 0) {stop("Fwd primer does not match in ", events$event[x])}
     out <- 1:min(matched)
-    if (length(out) > 1) {warning("Fwd primer in ", events$event[x], " maps across first ", length(out),
-                                  " elements. These will occur in all fwd junctions.")}
+    if (length(out) > 1 & !all(eType[[x]][out] == "C")) {
+        warning("Fwd primer in ", events$event[x], " maps across first ", length(out),
+                " elements. These will occur in all fwd junctions.")
+    }
     out
 })
 combi$match.R = lapply(1:nrow(events), FUN=function(x) {
@@ -165,8 +216,10 @@ combi$match.R = lapply(1:nrow(events), FUN=function(x) {
     matched <- grep(primers$specR[x], tmp)
     if (length(matched) == 0) {stop("Rev primer does not match in ", events$event[x])}
     out <- (length(seqs) + 2 -min(matched)):(length(seqs) + 1)
-    if (length(out) > 1) {warning("Rev primer in ", events$event[x], " maps across last ", length(out),
-                                  " elements. These will occur in all rev junctions.")}
+    if (length(out) > 1 & !all(eType[[x]][out] == "C")) {
+        warning("Rev primer in ", events$event[x], " maps across last ", length(out),
+                " elements. These will occur in all rev junctions.")
+    }
     out
 })
 
@@ -194,6 +247,13 @@ combi$E <- lapply(1:nrow(events), FUN=function(x) {
     out[!is.na(out)]
 })
 
+
+nE <- sapply(combi$E, length)
+matchEn <- sapply(1:nrow(events), FUN=function(x) {nE[x] == length(elem[[x]])})
+if (any(matchEn)) {
+    stop("Event(s) ", paste(events$event[which(matchEn)], collapse=", "),
+         " has/have different number of sequence segments than defined by structure code.")
+}
 
 ## Check if there are still at least minCnt nt left of C1 and C2 after 5'-trimming
 trim5len.C1 <- sapply(combi$C1, nchar) - opt$trimR1.5
@@ -224,24 +284,15 @@ readEndDn <- opt$readLength - opt$trimR2.3
 
 ## Generate fwd junctions
 forward <- lapply(1:nrow(events), FUN=function(x) {
-    elem  <- strsplit(events$structure[x], split="[-:]")[[1]]
-    eName <- gsub( "\\[.\\]", "", elem)
-    eType <- {
-        out <- ifelse(grepl("\\[", elem), "", "A")
-        out[grepl("\\[3\\]", elem)] <- "3"
-        out[grepl("\\[5\\]", elem)] <- "5"
-        out[grepl("\\[i\\]", elem)] <- "I"
-        out[grepl("\\[c\\]", elem)] <- "C"
-        out[c(1, length(out))]      <- "C"
-        out
-    }
-    nE <- length(combi$E[[x]])
+    eName.x <- eName[[x]]
+    eType.x <- eType[[x]]
+    nE.x    <- nE[x]
   
-    Eind <- matrix(ncol=nE + 2, nrow=2^nE)
+    Eind <- matrix(ncol=nE.x + 2, nrow=2^nE.x)
     Eind[,c(1, ncol(Eind))] <- TRUE  
     if (length(combi$E[[x]]) > 0) {
-        for (i in 1:nE) {
-            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE / (2^i))
+        for (i in 1:nE.x) {
+            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE.x / (2^i))
         }
     }
 
@@ -254,28 +305,27 @@ forward <- lapply(1:nrow(events), FUN=function(x) {
     })
     
     jNames <- sapply(1:nrow(Eind), FUN=function(y) {  # junction names using only the necessary elements
-        paste(eName[which(Eind[y,])[1:select[y]]], collapse="")})
+        paste(eName.x[which(Eind[y,])[1:select[y]]], collapse="")})
     seqsAll <- c(combi$C1[x], combi$E[[x]],combi$C2[x])
     seqs <- sapply(1:nrow(Eind), FUN=function(y) {   # seqs of the necessary elements
         paste(seqsAll[which(Eind[y,])[1:select[y]]], collapse="")})
       
     ## Remove 'forbidden' combinations due to element type and primer overlap
     forbType <- rep(FALSE, nrow(Eind))
-    link5 <- which(eType %in% c("5","I"))
+    link5 <- which(eType.x %in% c("5","I"))
     if (length(link5) > 0) {
         forbType <- forbType | apply(sapply(link5, FUN=function(y) {Eind[,y] & !Eind[,y - 1]}), MAR=1, any)
     }
-    link3 <- which(eType %in% c("3","I"))
+    link3 <- which(eType.x %in% c("3","I"))
     if (length(link3) > 0) {
         forbType <- forbType | apply(sapply(link3, FUN=function(y) {Eind[,y] & !Eind[,y + 1]}), MAR=1, any)
     }
-    const <- which(eType == "C")
+    const <- which(eType.x == "C")
     if (length(const) > 2) {
         forbType <- forbType | !apply(Eind[,const], MAR=1, all)
     }
-    
-    if (nE > 0) {
-        forbPrimer <- apply(sapply(c(combi$match.F[[x]],combi$match.R[[x]]), FUN=function(y) {!Eind[,y]}), MAR=1, any)
+    if (nE.x > 0) {
+        forbPrimer <- !apply(Eind[,c(combi$match.F[[x]],combi$match.R[[x]])], MAR=1, FUN=all)
     } else {
         forbPrimer <- FALSE
     }
@@ -287,12 +337,12 @@ forward <- lapply(1:nrow(events), FUN=function(x) {
     seqs <- seqs[!forbid]    
 
     ## Determine junctions for inclusion and exclusion reads of each element
-    inclJ <- lapply(grep("E", toupper(eName)), FUN=function(y) {
+    inclJ <- lapply(grep("E", toupper(eName.x)), FUN=function(y) {
         out <- jNames[Eind[,y]]
-        if (any(!grepl(eName[y], out))) {out <- NA}
+        if (any(!grepl(eName.x[y], out))) {out <- NA}
         unique(out)
     })
-    if (nE == 0) {inclJ <- list(jNames)}
+    if (nE.x == 0) {inclJ <- list(jNames)}
 
     ## Remove duplicated junctions (considering read length)
     junc <- data.frame(name=jNames, seq=seqs, stringsAsFactors=FALSE)
@@ -317,24 +367,25 @@ forward <- lapply(1:nrow(events), FUN=function(x) {
     })
 
     ## In the case of Alt5 or Alt3, indicate the element that it is attached to
-    out.Relative <- rep(NA, length(eName))
-    out.Relative[eType == "3"] <- eName[grep("3", eType) + 1]
-    out.Relative[eType == "5"] <- eName[grep("5", eType) - 1]
+    out.Relative <- rep(NA, length(eName.x))
+    out.Relative[eType.x == "3"] <- eName.x[grep("3", eType.x) + 1]
+    out.Relative[eType.x == "5"] <- eName.x[grep("5", eType.x) - 1]
     out.Relative[grep("C", out.Relative)] <- NA
-    if (nE > 0) {
-        out.Relative <- out.Relative[-c(1, length(eName))]
+    if (nE.x > 0) {
+        out.Relative <- out.Relative[-c(1, length(eName.x))]
     } else {
         out.Relative <- NA
     }
     
-    out.Event <- eName[-c(1, length(eName))]
-    if (length(out.Event) == 0) {out.Event <- NA}
+    out.Element <- eName.x[-c(1, length(eName.x))]
+    if (length(out.Element) == 0) {out.Element <- NA}
 
-    out.Label <- rep(NA, max(1, nE))
-    if (length(grep("E", eName)) > 0) {out.Label[grep("E", eName) - 1] <- paste("A", 1:length(grep("E", eName)), sep="")}
+    out.Label <- rep(NA, max(1, nE.x))
+    if (length(grep("E", eName.x)) > 0) {out.Label[grep("E", eName.x) - 1] <- paste("A", 1:length(grep("E", eName.x)), sep="")}
             
     outIncl <- data.frame(Gene        = events$gene[x],
-                          Event       = out.Event,
+                          Event       = events$event[x],
+                          Element     = out.Element,
                           Label       = out.Label,
                           Relative    = out.Relative,
                           JunctionsFw = inclJ,
@@ -342,7 +393,7 @@ forward <- lapply(1:nrow(events), FUN=function(x) {
                           )
             
     ## Return the junctions table and element matching data
-    junc$nameFinal <- paste(events$gene[x], "_", "fw", 1:nrow(junc), "_", junc$nameFinal, sep="")
+    junc$nameFinal <- paste(events$event[x], "_", "fw", 1:nrow(junc), "_", junc$nameFinal, sep="")
     junc <- junc[,c(3,2)]
     names(junc)[1] <- "name"
 
@@ -354,24 +405,15 @@ forward <- lapply(1:nrow(events), FUN=function(x) {
 
 ## Generate rev junctions
 reverse <- lapply(1:nrow(events), FUN=function(x) {
-    elem  <- rev(strsplit(events$structure[x], split="[-:]")[[1]])
-    eName <- gsub( "\\[.\\]", "", elem)
-    eType <- {
-        out <- ifelse(grepl("\\[", elem), "", "A")
-        out[grepl("\\[3\\]", elem)] <- "3"
-        out[grepl("\\[5\\]", elem)] <- "5"
-        out[grepl("\\[i\\]", elem)] <- "I"
-        out[grepl("\\[c\\]", elem)] <- "C"
-        out[c(1, length(out))]      <- "C"
-        out
-    }
-    nE <- length(combi$E[[x]])
-  
-    Eind <- matrix(ncol=nE + 2, nrow=2^nE)
+    eName.x <- rev(eName[[x]])
+    eType.x <- rev(eType[[x]])
+    nE.x    <- nE[x]
+
+    Eind <- matrix(ncol=nE.x + 2, nrow=2^nE.x)
     Eind[,c(1, ncol(Eind))] <- TRUE
     if (length(combi$E[[x]]) > 0) {
-        for (i in 1:nE) {
-            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE / (2^i))
+        for (i in 1:nE.x) {
+            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE.x / (2^i))
         }
     }
     Eind <- Eind[,ncol(Eind):1]
@@ -386,7 +428,7 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
     })
     
     jNames <- sapply(1:nrow(Eind), FUN=function(y) {  # junction names using only the necessary elements
-        paste(eName[which(Eind[y,])[1:select[y]]], collapse="")})
+        paste(eName.x[which(Eind[y,])[1:select[y]]], collapse="")})
     seqsAll <- c(combi$C2[x], rev(combi$E[[x]]), combi$C1[x])
     seqsAll <- as.character(reverseComplement(DNAStringSet(seqsAll)))
     seqs <- sapply(1:nrow(Eind), FUN=function(y) {   # seqs of the necessary elements
@@ -394,21 +436,22 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
       
     ## Remove 'forbidden' combinations due to element type and primer overlap
     forbType <- rep(FALSE, nrow(Eind))
-    link5 <- which(eType %in% c("5","I"))
+    link5 <- which(eType.x %in% c("5","I"))
     if (length(link5) > 0) {
         forbType <- forbType | apply(sapply(link5, FUN=function(y) {Eind[,y] & !Eind[,y + 1]}), MAR=1, any)
     }
-    link3 <- which(eType %in% c("3","I"))
+    link3 <- which(eType.x %in% c("3","I"))
     if (length(link3) > 0) {
         forbType <- forbType | apply(sapply(link3, FUN=function(y) {Eind[,y] & !Eind[,y - 1]}), MAR=1, any)
     }
-    const <- which(eType == "C")
+    const <- which(eType.x == "C")
     if (length(const) > 2) {
         forbType <- forbType | !apply(Eind[,const], MAR=1, all)
     }
 
-    if (nE > 0) {
-        forbPrimer <- apply(sapply(length(elem) - c(combi$match.F[[x]],combi$match.R[[x]]) + 1, FUN=function(y) {!Eind[,y]}), MAR=1, any)
+    if (nE.x > 0) {
+        forbPrimer <- !apply(Eind[,length(elem[[x]]) - c(combi$match.F[[x]],combi$match.R[[x]]) + 1],
+                                  MAR=1, FUN=all)
     } else {
         forbPrimer <- FALSE
     }
@@ -419,12 +462,12 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
     seqs <- seqs[!forbid]    
 
     ## Determine junctions for inclusion and exclusion reads of each element
-    inclJ <- lapply(grep("E", toupper(eName)), FUN=function(y) {
+    inclJ <- lapply(grep("E", toupper(eName.x)), FUN=function(y) {
         out <- jNames[Eind[,y]]
-        if (any(!grepl(eName[y], out))) {out <- NA}
+        if (any(!grepl(eName.x[y], out))) {out <- NA}
         unique(out)
     })
-    if (nE == 0) {inclJ <- list(jNames)}
+    if (nE.x == 0) {inclJ <- list(jNames)}
 
     ## Remove duplicated junctions (considering read length)
     junc <- data.frame(name=jNames, seq=seqs, stringsAsFactors=FALSE)
@@ -449,32 +492,33 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
     })
 
     ## In the case of Alt5 or Alt3, indicate the element that it is attached to
-    out.Relative <- rep(NA, length(eName))
-    out.Relative[eType == "3"] <- eName[grep("3", eType) - 1]
-    out.Relative[eType == "5"] <- eName[grep("5", eType) + 1]
+    out.Relative <- rep(NA, length(eName.x))
+    out.Relative[eType.x == "3"] <- eName.x[grep("3", eType.x) - 1]
+    out.Relative[eType.x == "5"] <- eName.x[grep("5", eType.x) + 1]
     out.Relative[grep("C", out.Relative)] <- NA
-    if (nE > 0) {
-        out.Relative <- out.Relative[-c(1, length(eName))]
+    if (nE.x > 0) {
+        out.Relative <- out.Relative[-c(1, length(eName.x))]
     } else {
         out.Relative <- NA
     }
     
-    out.Event <- eName[-c(1, length(eName))]
-    if (length(out.Event) == 0) {out.Event <- NA}
+    out.Element <- eName.x[-c(1, length(eName.x))]
+    if (length(out.Element) == 0) {out.Element <- NA}
 
-    out.Label <- rep(NA, max(1, nE))
-    if (length(grep("E", eName)) > 0) {out.Label[grep("E", eName) - 1] <- paste("A", length(grep("E", eName)):1, sep="")}
+    out.Label <- rep(NA, max(1, nE.x))
+    if (length(grep("E", eName.x)) > 0) {out.Label[grep("E", eName.x) - 1] <- paste("A", length(grep("E", eName.x)):1, sep="")}
             
     outIncl <- data.frame(Gene        = events$gene[x],
-                          Event       = out.Event,
+                          Event       = events$event[x],
+                          Element     = out.Element,
                           Label       = out.Label,
                           Relative    = out.Relative,
                           JunctionsRv = inclJ,
                           stringsAsFactors = FALSE
-                          )[length(out.Event):1,]
+                          )[length(out.Element):1,]
             
     ## Return the junctions table and element matching data
-    junc$nameFinal <- paste(events$gene[x], "_", "rv", 1:nrow(junc), "_", junc$nameFinal, sep="")
+    junc$nameFinal <- paste(events$event[x], "_", "rv", 1:nrow(junc), "_", junc$nameFinal, sep="")
     junc <- junc[,c(3,2)]
     names(junc)[1] <- "name"
 
@@ -487,58 +531,42 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
 ## Generate amplicons - note that there may be more amplicons than junctions because
 ## reads may not reach deep enough into amplicons to distinguish different ones
 amplicons <- lapply(1:nrow(events), FUN=function(x) {
-    elem  <- strsplit(events$structure[x], split="[-:]")[[1]]
-    eName <- gsub( "\\[.\\]", "", elem)
-    eType <- {
-        out <- ifelse(grepl("\\[", elem), "", "A")
-        out[grepl("\\[3\\]", elem)] <- "3"
-        out[grepl("\\[5\\]", elem)] <- "5"
-        out[grepl("\\[i\\]", elem)] <- "I"
-        out[grepl("\\[c\\]", elem)] <- "C"
-        out[c(1, length(out))]      <- "C"
-        out
-    }
-    nE <- length(combi$E[[x]])
-  
-    Eind <- matrix(ncol=nE + 2, nrow=2^nE)
+    eName.x <- eName[[x]]
+    eType.x <- eType[[x]]
+    nE.x    <- nE[x]
+
+    Eind <- matrix(ncol=nE.x + 2, nrow=2^nE.x)
     Eind[,c(1, ncol(Eind))] <- TRUE  
     if (length(combi$E[[x]]) > 0) {
-        for (i in 1:nE) {
-            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE / (2^i))
+        for (i in 1:nE.x) {
+            Eind[,i + 1] <- rep(rep(c(FALSE, TRUE), each=2^(i-1)), times=2^nE.x / (2^i))
         }
     }
-
-    #lengthsAll <- c(nchar(combi$C1[x]), nchar(combi$E[[x]]), nchar(combi$C2[x]))
-    #lengths <- lapply(1:nrow(Eind), FUN=function(y) {cumsum(lengthsAll[Eind[y,]])})
-    #select <- sapply(lengths, FUN=function(y) {  # how many elements needed?
-    #    suppressWarnings(out <- min(which(y >= readEndUp)))
-    #    if (is.infinite(out)) {out <- length(y)}
-    #    out
-    #})
     
     jNames <- sapply(1:nrow(Eind), FUN=function(y) {  # junction names (all elements)
-        paste(eName[which(Eind[y,])], collapse="")})
+        paste(eName.x[which(Eind[y,])], collapse="")})
     seqsAll <- c(combi$C1[x], combi$E[[x]],combi$C2[x])
     seqs <- sapply(1:nrow(Eind), FUN=function(y) {  
         paste(seqsAll[which(Eind[y,])], collapse="")})
       
     ## Remove 'forbidden' combinations due to element type and primer overlap
     forbType <- rep(FALSE, nrow(Eind))
-    link5 <- which(eType %in% c("5","I"))
+    link5 <- which(eType.x %in% c("5","I"))
     if (length(link5) > 0) {
         forbType <- forbType | apply(sapply(link5, FUN=function(y) {Eind[,y] & !Eind[,y - 1]}), MAR=1, any)
     }
-    link3 <- which(eType %in% c("3","I"))
+    link3 <- which(eType.x %in% c("3","I"))
     if (length(link3) > 0) {
         forbType <- forbType | apply(sapply(link3, FUN=function(y) {Eind[,y] & !Eind[,y + 1]}), MAR=1, any)
     }
-    const <- which(eType == "C")
+    const <- which(eType.x == "C")
     if (length(const) > 2) {
         forbType <- forbType | !apply(Eind[,const], MAR=1, all)
     }
     
-    if (nE > 0) {
-        forbPrimer <- apply(sapply(c(combi$match.F[[x]],combi$match.R[[x]]), FUN=function(y) {!Eind[,y]}), MAR=1, any)
+    if (nE.x > 0) {
+        forbPrimer <- !apply(Eind[,c(combi$match.F[[x]],combi$match.R[[x]])],
+                                   MAR=1, all)
     } else {
         forbPrimer <- FALSE
     }
@@ -548,7 +576,7 @@ amplicons <- lapply(1:nrow(events), FUN=function(x) {
     seqs <- seqs[!forbid]    
             
     ## Return amplicons and names
-    list(name = paste(events$gene[x], jNames, sep="_"),
+    list(name = paste(events$event[x], jNames, sep="_"),
          elem = seqs
          )    
 })
@@ -557,6 +585,7 @@ amplicons <- lapply(1:nrow(events), FUN=function(x) {
 ## Generate element table
 elemF <- data.frame(Gene        = unlist(lapply(forward, FUN=function(x) {x$elem$Gene})),
                     Event       = unlist(lapply(forward, FUN=function(x) {x$elem$Event})),
+                    Element     = unlist(lapply(forward, FUN=function(x) {x$elem$Element})),
                     Label       = unlist(lapply(forward, FUN=function(x) {x$elem$Label})),
                     Relative    = unlist(lapply(forward, FUN=function(x) {x$elem$Relative})),
                     JunctionsFw = unlist(lapply(forward, FUN=function(x) {x$elem$JunctionsFw})),
@@ -564,21 +593,22 @@ elemF <- data.frame(Gene        = unlist(lapply(forward, FUN=function(x) {x$elem
                 )
 elemR <- data.frame(Gene        = unlist(lapply(reverse, FUN=function(x) {x$elem$Gene})),
                     Event       = unlist(lapply(reverse, FUN=function(x) {x$elem$Event})),
+                    Element     = unlist(lapply(reverse, FUN=function(x) {x$elem$Element})),
                     Label       = unlist(lapply(reverse, FUN=function(x) {x$elem$Label})),
                     Relative    = unlist(lapply(reverse, FUN=function(x) {x$elem$Relative})),
                     JunctionsRv = unlist(lapply(reverse, FUN=function(x) {x$elem$JunctionsRv})),
                     stringsAsFactors = FALSE
                     )
-if (!all(paste(elemF$Gene, elemF$Event, elemF$Label, elemF$Relative) ==
-         paste(elemR$Gene, elemR$Event, elemR$Label, elemR$Relative))) {
+if (!all(paste(elemF$Gene, elemF$Event, elemF$Element, elemF$Label, elemF$Relative) ==
+         paste(elemR$Gene, elemR$Event, elemR$Element, elemR$Label, elemR$Relative))) {
     stop("Something went wrong. Different event elements for fwd and rev.")
 }
 
-elem <- cbind(elemF[,1:5], JunctionsRv=elemR[,5])
+elem <- cbind(elemF[,1:6], JunctionsRv=elemR[,6])
 undet <- is.na(elem$JunctionsFw) & is.na(elem$JunctionsRv)
 if (any(undet)) {
     warning("The following elements are undetermined in both directions:\n",
-            paste(paste(elem$Gene, elem$Event)[undet], collapse="\n"))
+            paste(paste(elem$Event, elem$Element)[undet], collapse="\n"))
     elem$Gene[undet] <- paste("#", elem$Gene[undet], sep="")
 }
 
@@ -610,9 +640,13 @@ if (any(shortR$short > 0)) {
     cat(paste(paste(shortR$name, shortR$short, sep=": ")[shortR$short > 0], collapse="\n"), "\n\n")
 }
 
-if (any(shortF$short > 0) | any(shortR$short > 0)) {
-    cat("Junction libraries were not produced\n")
+if ((any(shortF$short > 0) | any(shortR$short > 0)) & !opt$overrideAmpliLen) {
+    warning("Junction libraries were not produced.")
 } else {
+    if (opt$overrideAmpliLen) {
+        warning("Make sure amplicons shorter than read length are compatible with your sequencing strategy.")
+    }
+    
     ## Make junction FASTA files
     fa.fw <- character(length=2 * nrow(juncF))
     fa.rv <- character(length=2 * nrow(juncR))
@@ -634,24 +668,28 @@ if (any(shortF$short > 0) | any(shortR$short > 0)) {
     write.table(fa.amp, file=paste(opt$juncOut, "_amplicons.fa", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
     ## Produce minimum distance reports
-    minDist.fw <- minDistJunc(fa.fw)
-    minDist.rv <- minDistJunc(fa.rv)
-    if (any(minDist.fw$distAll < 2)) {
-        warning(paste(length(which(minDist.fw$distAll < 2)),
-                      "fwd junctions have a Hamming distance of < 2 to another fwd junction."))
-    } else {
-        cat("Minimum Hamming distance of fwd junctions is", min(minDist.fw$distAll), "\n")
+    if (all(shortF$short < 1)) {
+        minDist.fw <- minDistJunc(fa.fw)
+        if (any(minDist.fw$distAll < 2)) {
+            warning(paste(length(which(minDist.fw$distAll < 2)),
+                          "fwd junctions have a Hamming distance of < 2 to another fwd junction."))
+        } else {
+            cat("Minimum Hamming distance of fwd junctions is", min(minDist.fw$distAll), "\n")
+        }
+        write.table(minDist.fw, file=paste(opt$juncOut, "_fwd_minDist.tab", sep=""), row.names=F, col.names=T, quote=F, sep='\t')
     }
-    if (any(minDist.rv$distAll < 2)) {
-        warning(paste(length(which(minDist.rv$distAll < 2)),
-                      "rev junctions have a Hamming distance of < 2 to another rev junction."))
-    } else {
-        cat("Minimum Hamming distance of rev junctions is", min(minDist.rv$distAll), "\n")
+
+    if (all(shortR$short < 1)) {
+        minDist.rv <- minDistJunc(fa.rv)
+        if (any(minDist.rv$distAll < 2)) {
+            warning(paste(length(which(minDist.rv$distAll < 2)),
+                          "rev junctions have a Hamming distance of < 2 to another rev junction."))
+        } else {
+            cat("Minimum Hamming distance of rev junctions is", min(minDist.rv$distAll), "\n")
+        }    
+        write.table(minDist.rv, file=paste(opt$juncOut, "_rev_minDist.tab", sep=""), row.names=F, col.names=T, quote=F, sep='\t')
     }
     
-    write.table(minDist.fw, file=paste(opt$juncOut, "_fwd_minDist.tab", sep=""), row.names=F, col.names=T, quote=F, sep='\t')
-    write.table(minDist.rv, file=paste(opt$juncOut, "_rev_minDist.tab", sep=""), row.names=F, col.names=T, quote=F, sep='\t')
-
     ## Produce junction BED files to be used by the pipeline
     bed.fw <- data.frame(juncF$name, 0, nchar(juncF$seq))
     bed.rv <- data.frame(juncR$name, 0, nchar(juncR$seq))
@@ -660,3 +698,19 @@ if (any(shortF$short > 0) | any(shortR$short > 0)) {
     write.table(bed.rv, file=paste(opt$juncOut, "_rev.bed", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
 }
+
+stop("THE END")
+setwd("~/Documents/Skyhawk/Events/test/")
+opt <- list()
+opt$eventFile <- "../Junctions/SPAR-seq_panel_JunctionLibrary_v1_20210525_removedIntrons_UB210816.csv"
+opt$primerFile <- "../Primers/Skyhawk_ALLprimers_UB210816.csv"
+opt$adaptF <- "ACACTCTTTCCCTACACGACGCTCTTCCGATCT"
+opt$adaptR <- "GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT"
+opt$readLength <- 150
+opt$trimR1.5 <- 0
+opt$trimR1.3 <- 0
+opt$trimR2.5 <- 0
+opt$trimR1.3 <- 0
+opt$minCnt <- 4
+opt$eventOut <- "Skyhawk_ALLprimers_UB210816_eventJunctions.tab"
+opt$juncOut <- "Skyhawk_ALLprimers_HH210816_junctions"
