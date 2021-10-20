@@ -100,8 +100,8 @@ foreach my $sample (sort keys %UNQ) {
 	next;
     }
     
-    system "$path/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
-	die "[3] Error when getting counts for $sample\n";
+#    system "$path/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
+#	die "[3] Error when getting counts for $sample\n";
 }
 print "[3] Done getting junction counts\n";
 
