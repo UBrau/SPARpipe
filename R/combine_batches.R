@@ -134,8 +134,9 @@ if (any(!files$found)) {
 
 ### Load, combine and save tables
 treat <- read.delim(opt$options$treatTab)
-ev    <- read.delim(opt$options$eventTab)
-ev$Name <- ifelse(is.na(ev$Event), as.character(ev$Gene), paste(ev$Gene, ev$Event, sep="."))
+ev    <- read.delim(opt$options$eventTab, sep="\t", header=T, comment.char="#")
+ev$Name <- ifelse(is.na(ev$Event), as.character(ev$Event), paste(ev$Event, ev$Element, sep="."))
+ev <- ev[order(ev$Name),]
 
 psi <- lapply(which(files$type == "PSI"), getTable, ev=ev, files=files)
 psi <- cTables(psi, type="PSI", treat=treat)
