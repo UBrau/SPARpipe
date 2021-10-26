@@ -109,7 +109,7 @@ main <- function(batch, cores=1) {
     for (i in 1:length(read.input)) {
         super.ie[,i] <- as.matrix(countIE.input[[i]][,3])
     }
-    super.ie <- data.frame(Event = targetID, super.reads)
+    super.ie <- data.frame(Event = targetID, super.ie)
 
     write.table(super.ie, file=file.path(inDir, paste("batchdata/InclExclCounts_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
