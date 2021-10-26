@@ -42,7 +42,7 @@ get_beta_sd <- function(incl, excl) {
 }
 
 get_counts.IE <- function(readsUp, readsDn, psi) {
-### Get pseudo shape parameters of a beta distribution based on PSI and the number of readsmultiple
+### Get pseudo shape parameters of a beta distribution based on PSI and the number of reads
 ### of either the greater of the fwd and rev reads or, if only one is used, that one.
     useUp <- readsUp >= readsDn
     useUp[is.na(useUp) & !is.na(readsUp)] <- TRUE
