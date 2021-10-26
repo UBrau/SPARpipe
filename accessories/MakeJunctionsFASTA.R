@@ -119,7 +119,7 @@ if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt
 ## Check eventFile
 events <- read.csv(opt$eventFile, as.is=T)
 events <- events[!grepl("^#", events[,1]),]
-minEventCols <- c("gene","event","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
+minEventCols <- c("gene","amplicon","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
 if (!all(minEventCols %in% names(events))) {
     stop("eventFile must contain at least columns ", paste(minEventCols, collapse=", "))
 }
