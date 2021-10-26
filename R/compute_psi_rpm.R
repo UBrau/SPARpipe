@@ -9,7 +9,7 @@ libMissing <- !require(optparse, quietly=T)
 if (libMissing) {stop("Failed to load R package 'optparse'")}
 
 #### Options
-args <- commandArgs(FALSE)
+args <- commandArgs(TRUE)
 
 option.list <- list(
     make_option(c("-e", "--events"), type="character",
@@ -30,7 +30,7 @@ if (libMissing) {stop("Failed to load R package 'parallel'")}
 
 
 ### Get gene AS type and junctions to use
-AS.types <- read.table(opt$options$events, sep="\t", header=T)
+AS.types <- read.table(opt$options$events, sep="\t", header=T, comment.char="#")
 
 ### Functions
 get_beta_sd <- function(incl, excl) {
@@ -92,6 +92,7 @@ compute_rpm <- function(m) {
     return(newm)
 }
 
+
 compute_psi <- function(m) {  
     newm <- data.frame(m, 
                        data.frame(PSI.Fw      = NA,
@@ -121,7 +122,7 @@ compute_psi <- function(m) {
     allUpJunctions <- grep("Counts\\.fw", names(newm), value=T)
     allDnJunctions <- grep("Counts\\.rv", names(newm), value=T)
 
-    if (!all(sapply(upJunctions, length) == 1 && sapply(dnJunctions, length) == 1)) {  # there are PSI to calculate
+    if (!all(sapply(upJunctions, length) == 1 & sapply(dnJunctions, length) == 1)) {  # there are PSI to calculate
         ## count inclusion and exclusion reads
         inclUp <- sapply(1:nrow(newm), FUN=function(x) {
             if (is.na(upJunctions[[x]][1])) {
@@ -173,13 +174,12 @@ compute_psi <- function(m) {
 }
 
 main <- function(file) {
-    m <- read.table(file, sep="\t", col.names=c("Gene", "Junction", "Label", "Counts"))
+    m <- read.table(file, sep="\t", col.names=c("Event", "Junction", "Label", "Counts"))
     m <- m[,c(1,2,4)]
-
-    newm <- reshape(m, v.names="Counts", idvar="Gene", timevar="Junction",
+    newm <- reshape(m, v.names="Counts", idvar="Event", timevar="Junction",
                     direction="wide")
-    newm <- merge(AS.types, newm, by=1)  # duplicate lines with multiple events
-    newm$Event <- ifelse(is.na(newm$Event), yes=as.character(newm$Gene), no=paste(newm$Gene, newm$Event, sep="."))
+    newm <- merge(AS.types, newm, by.x=2, by.y=1)  # duplicate lines with multiple events
+    newm$Event <- ifelse(is.na(newm$Event), yes=as.character(newm$Gene), no=paste(newm$Event, sep="."))
     newm <- compute_psi(newm)
     newm <- compute_rpm(newm)
     newm <- within(newm,
@@ -206,12 +206,13 @@ outDir  <- sub("/*$", "", opt$args[length(opt$args)])
 
 if (!dir.exists(file.path(outDir, "counts"))) {
     stop("Directory ", outDir, "/counts not found")
-}                                                                                                                                                                           
+}
+              
 
 files <- dir(file.path(outDir, "counts"), pattern=".*W[0-9]+.+counts.tab")
 if (length(files) < 1) {
    stop("No counts files found in ", outDir, "/counts")
-}  
+}
 
 
 ### Execute commands
