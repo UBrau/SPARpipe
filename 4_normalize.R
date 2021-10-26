@@ -77,14 +77,21 @@ calcSSMD <- function(x, treat, counts, opt) {
     names(id.reps) <- unique(treat$ID)
 
     nreps <- sapply(id.reps, length)
+    no.reps <- nreps < 2
+
+    if (length(type.neg) > 2) {
+        stop("Unable to calculate SSMD with less than two negative controls")
+    }
+    if (all(no.reps)) {
+        stop("No treatment has replicates, cannot calculate SSMD.")
+    }
     if (any(nreps < 2)) {
         warning(length(which(nreps < 2)), " treatment ID(s) have less than 2 replicates... removing")
-        id.reps <- types.reps[nreps >= 2]
     }
 
     ## Calculate SSMD
     ssmd <- lapply(1:ncol(x), FUN=function(y) {
-        calculateSSMD(x[,y], counts[,y + 2], id.reps, type.neg,
+        calculateSSMD(x[,y], counts[,y + 2], id.reps, no.reps, type.neg,
                       cores=opt$options$cores, ev=colnames(x)[y], minCounts=opt$options$minCounts)
     })
     ssmd <- list(psi  = sapply(ssmd, "[[", 1),
@@ -109,17 +116,21 @@ calcSSMD <- function(x, treat, counts, opt) {
     ssmd
 }
 
-calculateSSMD <- function(psi, counts, id.reps, type.neg, ev="?", cores=1, minCounts) {
+calculateSSMD <- function(psi, counts, id.reps, no.reps, type.neg, ev="?", cores=1, minCounts) {
 ### Called by calcSSMD
     psi <- psi/100
     shapesNeg <- retry.posterior.shapes(psi[type.neg], mean(counts[type.neg]), ev=ev, type="neg. controls",
                                         minN=minCounts)
     psiNeg <- beta.mean(shapesNeg)
     varNeg <- beta.var(shapesNeg)
-
     out <- mclapply(1:length(id.reps), FUN=function(x) {
-        get.ssmd(psi[id.reps[[x]]], counts[id.reps[[x]]], psiNeg, varNeg, ev=ev, type=names(id.reps)[x],
-                 minCounts=minCounts)
+    	if (no.reps[x]) {
+	    return(c(mean=NA, ssmd=NA))
+	} else {
+            return(get.ssmd(psi[id.reps[[x]]], counts[id.reps[[x]]], psiNeg, varNeg, ev=ev, type=names(id.reps)[x],
+                        minCounts=minCounts)
+            )
+        }
     }, mc.cores=cores)
     out <- data.frame(PSI  = 100 * sapply(out, "[[", 1),
                       SSMD = sapply(out, "[[", 2)
