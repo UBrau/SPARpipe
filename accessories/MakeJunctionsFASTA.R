@@ -17,7 +17,7 @@ cArgs <- commandArgs(TRUE)
 ##    if the C1/C2 is removed.
 ##  - Deal with 3-primer IR events
 ##  - Check that 'element' is used consistently instead of 'event'
-##  - Change downstream scripts to use event instead of gene   
+##  - Change downstream scripts to use 'event' instead of 'gene'   
 
 ## Check dependencies
 libMissing <- !require("optparse", quietly=T)
@@ -165,7 +165,7 @@ primers$specR <- sapply(as.character(primers$seqR), FUN=function(x) {strsplit(x,
 primers$specR <- as.character(reverseComplement(DNAStringSet(primers$specR)))
 
 
-## Check if all sequences of the elements specified by the structure code are present
+## Check if all sequences of the elements have a permissible structure code
 elem  <- lapply(1:nrow(events), FUN=function(x) {
     strsplit(events$structure[x], split="[-:]")[[1]]
 })
@@ -183,6 +183,20 @@ eType <- lapply(elem, FUN=function(x) {
 })
 if (!all(unique(unlist(eType)) %in% c("C","A","3","5","I"))) {
     stop("Element types can only be C1, C2, or intervening (E/e) with one of the indices [c], [3], [5] or [i]")
+}
+
+
+## Check if alternative element numbers are 1:n
+altNumberOK <- sapply(eName, FUN=function(x) {
+    tmp <- as.integer(sub("E|e", "", x[-c(1, length(x))]))
+    if (length(tmp) > 0) {
+        all(tmp == 1:length(tmp))
+    } else {
+        return(TRUE)
+    }
+}) 
+if (!all(altNumberOK)) {
+    stop("Check numbering of intervening elements in event(s) ", paste(events$event[!altNumberOK], collapse=", "))
 }
 
 
