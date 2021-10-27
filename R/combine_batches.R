@@ -78,7 +78,7 @@ depEvents <- function(x, ev) {
     dep <- sapply(ev$Name[which(!is.na(ev$Relative))], grep, x=names(x))
 
     if (length(dep) > 0)  {
-        parName <- ifelse(is.na(ev$Relative), as.character(ev$Gene), paste(ev$Gene, ev$Relative, sep="."))
+        parName <- ifelse(is.na(ev$Relative), as.character(ev$Event), paste(ev$Event, ev$Relative, sep="."))
         if (!all(parName[which(!is.na(ev$Relative))] %in% names(x))) {
             stop("Parent event not found for ", paste(parName[!(parName %in% names(x))], collapse=", "))
         }
@@ -134,8 +134,9 @@ if (any(!files$found)) {
 
 ### Load, combine and save tables
 treat <- read.delim(opt$options$treatTab)
-ev    <- read.delim(opt$options$eventTab)
-ev$Name <- ifelse(is.na(ev$Event), as.character(ev$Gene), paste(ev$Gene, ev$Event, sep="."))
+ev    <- read.delim(opt$options$eventTab, sep="\t", header=T, comment.char="#")
+ev$Name <- ifelse(is.na(ev$Element), as.character(ev$Event), paste(ev$Event, ev$Element, sep="."))
+ev <- ev[order(ev$Name),]
 
 psi <- lapply(which(files$type == "PSI"), getTable, ev=ev, files=files)
 psi <- cTables(psi, type="PSI", treat=treat)

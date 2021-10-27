@@ -37,34 +37,46 @@ main <- function(batch, cores=1) {
     psi.files <- list.files(file.path(inDir, "welldata"), pattern=paste(batch, ".*W.*.RAW.tab", sep=""), full.names=T)
 
     psi.input     <- mclapply(psi.files, read.csv, sep="\t", mc.cores=cores)
-    rpm.input     <- mclapply(psi.input, "[", c("Event", "RPM.Fw", "RPM.Rv", "RPM"), mc.cores=cores)
-    read.input    <- mclapply(psi.input, "[", c(which(names(psi.input[[1]]) == "Event"), grep("Reads", names(psi.input[[1]]))), 
-    		     mc.cores=cores)
-    countIE.input <- mclapply(psi.input, "[", c("Event", "Counts.InEx"), mc.cores=cores)
-    psi.input     <- mclapply(psi.input, "[", c("Event", "PSI.Fw", "SD.Fw", "PSI.Rv", "SD.Rv", "PSI"), mc.cores=cores)
-    names(psi.input) <- names(read.input) <- names(countIE.input) <- names(rpm.input) <- str_extract(psi.files, "W\\d+")
+    rpm.input     <- mclapply(psi.input, "[", c("Event","Element", "RPM.Fw", "RPM.Rv", "RPM"),
+                              mc.cores=cores)
+    read.input    <- mclapply(psi.input, "[", c(which(names(psi.input[[1]]) == "Event"),
+                                                which(names(psi.input[[1]]) == "Element"),
+                                                grep("Reads", names(psi.input[[1]]))), 
+                              mc.cores=cores)
+    countIE.input <- mclapply(psi.input, "[", c("Event", "Element", "Counts.InEx"),
+                              mc.cores=cores)
+    psi.input     <- mclapply(psi.input, "[", c("Event", "Element", "PSI.Fw", "SD.Fw", "PSI.Rv", "SD.Rv", "PSI"),
+                              mc.cores=cores)
+    names(psi.input) <- names(read.input) <- names(countIE.input) <- names(rpm.input) <- sub(".*_(W[0-9]+).+", "\\1", psi.files)
+
+    targetID <- paste(psi.input[[1]]$Event, psi.input[[1]]$Element, sep=".")
+
 
     ## PSI
-    super.psi <- join_all(psi.input, by="Event")
-    colnames(super.psi)[2:ncol(super.psi)] <- paste(rep(names(psi.input), each=ncol(psi.input[[1]])-1),
-                                                    colnames(super.psi)[2:ncol(super.psi)],
-                                                    sep=".")
-    write.table(super.psi, file=file.path(inDir, paste("batchdata/PSI.FULL_", batch, ".tab", sep="")), sep="\t", quote=F, row.names=F)
+    super.psi <- matrix(nrow = nrow(psi.input[[1]]), ncol=5 * length(psi.input),
+                        dimnames=list(c(), paste(rep(names(psi.input), each=5), names(psi.input[[1]])[3:7], sep="."))
+                        )
+    for (i in 1:length(psi.input)) {
+        super.psi[,(i - 1) * 5 + 1:5] <- as.matrix(psi.input[[i]][,3:7])
+    }
+    super.psi <- data.frame(Event = targetID, super.psi)
+
+    write.table(super.psi, file=file.path(inDir, paste("batchdata/PSI.FULL_", batch, ".tab", sep="")),
+                sep="\t", quote=F, row.names=F)
     write.table(super.psi[,c(1,seq(6,ncol(super.psi),5))], 
         file=file.path(inDir, paste("batchdata/PSI_", batch, ".tab", sep="")),
         sep="\t", quote=F, row.names=F)
     cat("Done merging PSI files\n")
 
-
+    
     ## RPM
-    super.rpm <- join_all(rpm.input, by="Event")
-
-    colnames(super.rpm)[2:ncol(super.rpm)] <- paste(rep(names(rpm.input), 
-                                                        each=ncol(rpm.input[[1]])-1),
-                                                    colnames(super.rpm)[2:ncol(super.rpm)],
-                                                    sep=".")
-
-    super.rpm <- data.frame(Event=super.rpm$Event, super.rpm[,2:ncol(super.rpm)])
+    super.rpm <- matrix(nrow = nrow(psi.input[[1]]), ncol=3 * length(psi.input),
+                        dimnames=list(c(), paste(rep(names(rpm.input), each=3), names(rpm.input[[1]])[3:5], sep="."))
+                        )
+    for (i in 1:length(rpm.input)) {
+        super.rpm[,(i - 1) * 3 + 1:3] <- as.matrix(rpm.input[[i]][,3:5])
+    }
+    super.rpm <- data.frame(Event = targetID, super.rpm)
 
     write.table(super.rpm, file=file.path(inDir, paste("batchdata/RPM.FULL_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
@@ -75,12 +87,13 @@ main <- function(batch, cores=1) {
 
 
     ## Reads
-    super.reads <- join_all(read.input, by="Event")
-
-    colnames(super.reads)[2:ncol(super.reads)] <- paste(rep(names(read.input), 
-                                                        each=ncol(read.input[[1]])-1),
-                                                    colnames(super.reads)[2:ncol(super.reads)],
-                                                    sep=".")
+    super.reads <- matrix(nrow = nrow(psi.input[[1]]), ncol=2 * length(psi.input),
+                        dimnames=list(c(), paste(rep(names(read.input), each=2), names(read.input[[1]])[3:4], sep="."))
+                        )
+    for (i in 1:length(read.input)) {
+        super.reads[,(i - 1) * 2 + 1:2] <- as.matrix(read.input[[i]][,3:4])
+    }
+    super.reads <- data.frame(Event = targetID, super.reads)
 
     write.table(super.reads, file=file.path(inDir, paste("batchdata/ReadsPerEvent_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
@@ -88,12 +101,15 @@ main <- function(batch, cores=1) {
 
 
     ## Pseudo-inclusion/exclusion reads
-    super.ie <- join_all(countIE.input, by="Event")
-
-    colnames(super.ie)[2:ncol(super.ie)] <- paste(rep(names(countIE.input), 
-                                                        each=ncol(countIE.input[[1]])-1),
-                                                    colnames(super.ie)[2:ncol(super.ie)],
-                                                    sep=".")
+    super.ie <- matrix(nrow = nrow(psi.input[[1]]), ncol=length(psi.input),
+                       dimnames=list(c(),
+                                     paste(names(read.input), names(countIE.input[[1]])[3], sep=".")
+                                     )
+                        )
+    for (i in 1:length(read.input)) {
+        super.ie[,i] <- as.matrix(countIE.input[[i]][,3])
+    }
+    super.ie <- data.frame(Event = targetID, super.ie)
 
     write.table(super.ie, file=file.path(inDir, paste("batchdata/InclExclCounts_", batch, ".tab", sep="")),
                 sep="\t", quote=F, row.names=F)
