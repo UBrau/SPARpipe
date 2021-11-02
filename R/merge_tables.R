@@ -9,8 +9,6 @@
 
 libMissing <- !require(optparse, quietly=T)
 libMissing <- libMissing | !require(parallel, quietly=T)
-libMissing <- libMissing | !require(stringr, quietly=T)
-libMissing <- libMissing | !require(plyr, quietly=T)
 if (libMissing) {stop("Failed to load R package(s) in merge_tables.R")}
 
 ### Parse input
