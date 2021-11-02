@@ -75,11 +75,10 @@ calcSSMD <- function(x, treat, counts, opt) {
     type.neg  <- which(treat$Type == "ctlNeg")
     id.reps <- lapply(unique(treat$ID), FUN=function(y) {which(treat$ID == y)})
     names(id.reps) <- unique(treat$ID)
-
     nreps <- sapply(id.reps, length)
     no.reps <- nreps < 2
 
-    if (length(type.neg) > 2) {
+    if (length(type.neg) < 2) {
         stop("Unable to calculate SSMD with less than two negative controls")
     }
     if (all(no.reps)) {
@@ -615,7 +614,6 @@ write.table(data.frame(uniqTreat, ssmd.norm$dpsi, check.names=F), row.names=F, c
             file=file.path(inDir, "norm", "dPSI.norm.tab"))
 write.table(data.frame(uniqTreat, ssmd.norm$ssmd, check.names=F), row.names=F, col.names=T, quote=F, sep='\t',
             file=file.path(inDir, "norm", "SSMD.norm.tab"))
-
 
 ### Generate plots
 cat("Generating plots...\n")
