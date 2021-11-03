@@ -127,3 +127,10 @@ mkdir $outDir."/raw" unless (-e $outDir."/raw");
 system "$path/R/combine_batches.R -e $evTab -t $treatTab $outDir" and
     die "[3] Error when creating output tables\n";
 print "[3] Done creating output tables\n";
+
+
+# Aggregate mapping stats
+mkdir $outDir."/mappability" unless (-e $outDir."/mappability");
+system "$path/R/score_mappability.R -t $treatTab $outDir" and
+    die "[3] Error when collating mappability\n";
+print "[3] Done collating mappability\n";
