@@ -119,7 +119,7 @@ if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt
 ## Check eventFile
 events <- read.csv(opt$eventFile, as.is=T)
 events <- events[!grepl("^#", events[,1]),]
-minEventCols <- c("gene","amplicon","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
+minEventCols <- c("gene","event","structure","chrom","strand","C1.start","C1.end","C2.start","C2.end","C1.seq","C2.seq")
 if (!all(minEventCols %in% names(events))) {
     stop("eventFile must contain at least columns ", paste(minEventCols, collapse=", "))
 }
@@ -275,7 +275,7 @@ trim5len.C2 <- sapply(combi$C2, nchar) - opt$trimR2.5
 
 if (all(trim5len.C1 >= opt$minCnt)) {
     cat("Requested R1 5' trimming OK. You could trim a max of", min(sapply(combi$C1, nchar)) - opt$minCnt,
-        "nt to maintain C1 overlap.\n")
+        "nt to maintain C1 overlap of", opt$minCnt, "nt .\n")
 } else {
     stop("Trimming of ", opt$trimR1.5, " nt at R1 results in too short C1 for ",
          paste(events$event[trim5len.C1 < opt$minCnt], collapse=", "), ". Max is ",
@@ -283,7 +283,7 @@ if (all(trim5len.C1 >= opt$minCnt)) {
 }
 if (all(trim5len.C2 >= opt$minCnt)) {
     cat("Requested R2 5' trimming OK. You could trim a max of", min(sapply(combi$C2, nchar)) - opt$minCnt,
-        "nt to maintain C2 overlap.\n")
+        "nt to maintain C2 overlap of", opt$minCnt, "nt.\n")
 } else {
     stop("Trimming of ", opt$trimR2.5, " nt at R2 results in too short C2 for ",
          paste(events$event[trim5len.C2 < opt$minCnt], collapse=", "), ". Max is ",
@@ -712,19 +712,3 @@ if ((any(shortF$short > 0) | any(shortR$short > 0)) & !opt$overrideAmpliLen) {
     write.table(bed.rv, file=paste(opt$juncOut, "_rev.bed", sep=""), row.names=F, col.names=F, quote=F, sep='\t')
 
 }
-
-stop("THE END")
-setwd("~/Documents/Skyhawk/Events/test/")
-opt <- list()
-opt$eventFile <- "../Junctions/SPAR-seq_panel_JunctionLibrary_v1_20210525_removedIntrons_UB210816.csv"
-opt$primerFile <- "../Primers/Skyhawk_ALLprimers_UB210816.csv"
-opt$adaptF <- "ACACTCTTTCCCTACACGACGCTCTTCCGATCT"
-opt$adaptR <- "GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT"
-opt$readLength <- 150
-opt$trimR1.5 <- 0
-opt$trimR1.3 <- 0
-opt$trimR2.5 <- 0
-opt$trimR1.3 <- 0
-opt$minCnt <- 4
-opt$eventOut <- "Skyhawk_ALLprimers_UB210816_eventJunctions.tab"
-opt$juncOut <- "Skyhawk_ALLprimers_HH210816_junctions"
