@@ -7,14 +7,14 @@ libMissing <- !require(optparse, quietly=T)
 if (libMissing) {stop("Failed to load R package 'optparse'")}
 
 #### Options
-args <- commandArgs(TRUE)
+cArgs <- commandArgs(TRUE)
 
 option.list <- list(
     make_option(c("-t", "--treatTab"),       action="store", type="character", metavar="FILE",
                 help="Path of treatmtent file for experimental peaks. This file specifies all samples in the project,
                       including replicates. Required columns are ID, Replicate, Batch, Barcode.")
 )
-parser <- OptionParser(option_list=opt.list,
+parser <- OptionParser(option_list=option.list,
                        usage="usage: %prog [options] OUTDIR",
                        description="Merge mappability from stats files, save tables and plots")
 opt <- parse_args(parser, args=cArgs, positional_arguments=TRUE)

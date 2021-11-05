@@ -34,7 +34,7 @@ if(is.null(opt$options$treatTab)) {stop("Treatment table is required")}
 getTable <- function(x, ev, files) {
 ### Read in PSI tables per batch and reformat
 ### x: a line number reffering to the files table
-    raw <- read.delim(file.path(inDir, "batchdata", files$name[x]))
+    raw <- read.delim(file.path(inDir, "batchdata", files$name[x]), as.is=T)
     if (!all(raw$Event == ev$Name)) {
         stop("Events in ", files$name[x], " not identical with those in events table")
     }
@@ -75,14 +75,18 @@ cTables <- function(x, type="", treat) {
 
 depEvents <- function(x, ev) {
 ### Re-normalize dependent events by the PSI of their parent
-    dep <- sapply(ev$Name[which(!is.na(ev$Relative))], grep, x=names(x))
-
+    rel <- which(!is.na(ev$Relative))
+    dep <- sapply(ev$Name[rel], grep, x=names(x))
     if (length(dep) > 0)  {
         parName <- ifelse(is.na(ev$Relative), as.character(ev$Event), paste(ev$Event, ev$Relative, sep="."))
-        if (!all(parName[which(!is.na(ev$Relative))] %in% names(x))) {
-            stop("Parent event not found for ", paste(parName[!(parName %in% names(x))], collapse=", "))
+        if (!all(parName[rel] %in% names(x))) {
+            warning("Parent event not found for ", 
+	        paste(parName[!is.na(ev$Relative) & !(parName %in% names(x))], collapse=", ")
+	    )
+	    dep <- dep[parName[rel] %in% names(x)]
+	    rel <- rel[parName[rel] %in% names(x)]
         }
-        par <- sapply(parName[which(!is.na(ev$Relative))], grep, x=names(x))
+        par <- sapply(parName[rel], grep, x=names(x))
         for (i in 1:length(dep)) {
             new <- round(x[,dep[i]] * x[,par[i]] / 100, 2)
             if (any((new < 0 | new > 100) & !is.na(new)) & !all(is.na(new))) {
