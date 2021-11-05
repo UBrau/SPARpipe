@@ -237,7 +237,7 @@ drawPlots <- function(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, treat)
         cat("No positive controls found, skipping performance plot. Annotate positive and negative controls",
             "with 'ctlPos' and 'ctlNeg' in column 'Type' of the treatment table.\n")
     } else {
-        pdf(file.path(inDir, "norm", "ScreenPerformance.pdf"), wid=6, hei=10)
+        pdf(file.path(inDir, "norm", "ScreenPerformance.pdf"), wid=7, hei=10)
         plotPerformance(ssmd.raw$ssmd, ssmd.norm$ssmd, treat, cores=opt$options$cores)
         dev.off()
     }
@@ -487,9 +487,9 @@ plotPerformance <- function(raw, norm, treat, cores) {
                    )
     cols <- c("brown1","dodgerblue","black")
     suppressWarnings(
-        xlim <- c(0, max(c(max(abs(c(as.numeric(raw[unlist(groups[2]),]), as.numeric(norm[unlist(groups[1]),])))),
+        xlim <- c(0, max(c(max(abs(c(as.numeric(raw[unlist(groups[2]),]), as.numeric(norm[unlist(groups[2]),]))), na.rm=T),
                            quantile(apply(abs(cbind(raw, norm))[groups[[1]],], MAR=1, max, na.rm=T), 0.50, na.rm=T),
-                           quantile(apply(abs(cbind(raw, norm))[groups[[3]],], MAR=1, max, na.rm=T), 0.99, na.rm=T)
+                           quantile(apply(abs(cbind(raw, norm))[groups[[3]],], MAR=1, max, na.rm=T), 0.90, na.rm=T)
                            ), na.rm=T)
                   )
     )
@@ -502,34 +502,63 @@ plotPerformance <- function(raw, norm, treat, cores) {
 
 .plotPerformance.one <- function(x, cols, groups, xlim=c(0, 30), minEvents=0.25, main="", cores=1) {
 ### Generate the performance plot for one SSMD table
-    s.thres <- seq(xlim[1], xlim[2]*1.05, 0.01)
-    black <- which(apply(x, MAR=1, FUN=function(y) {length(which(is.na(y))) < minEvents * ncol(x)}))
+    blackEv <- colSums(is.na(x)) == nrow(x)
+    s.step <- (xlim[2] - xlim[1]) / 5000
+    s.thres <- seq(xlim[1], xlim[2]*1.05, s.step)
+    
+    blackTr <- which(rowSums(is.na(x[,!blackEv])) > minEvents * ncol(x))
     val <- sapply(groups, FUN=function(y) {
-        y <- setdiff(y, black)
+        y <- setdiff(y, blackTr)
         unlist(mclapply(s.thres, .plotPerformance.count, x=x, y=y, mc.cores=cores))
     })
 
+    ## Determine screening window: either range where all +controls are hits and no -controls, or
+    ## if impossible, centre of window with biggest difference
+    intType <- "Optimal performance"
+    accrange <- signif(s.thres[c(min(which(val[,2] == 0)), max(which(val[,1] == 1)))], 3)
+    posNegDiff <- val[,1] - val[,2]
+    if (accrange[2] < accrange[1]) {
+        best <- which(posNegDiff == max(posNegDiff, na.rm=T))
+        if (all(best[-1] - best[-length(best)] == 1)) {
+            accrange <- signif(s.thres[range(best)], 3)
+            intType <- "Best window"
+        } else {
+            accrange <- NA
+            intType <- "Best SSMD window not determined"
+        }
+    }
+
+    
     plot(s.thres, val[,1], type="n", xlim=xlim, ylim=c(0, 1),
          xlab="|SSMD| threshold for hit", ylab="Fraction of hits")
     title(main=main, col.main="grey70", adj=1)
     abline(h=c(0,1))
     for (i in ncol(val):1) {lines(s.thres, val[,i], lwd=3, col=cols[i])}
-    accrange <- s.thres[c(min(which(val[,2] == 0)), max(which(val[,1] == 1)))]
-    abline(v=accrange, col="black", lty=2)
     legend("topright", colnames(val), text.col=cols, bty="n")
+    legend("top", paste(length(which(!blackEv)), "events"), bty="n")
 
-    arrwid <- (xlim[2] - xlim[1]) / 50
-    segments(x0=accrange[1] + 0.5*arrwid,  x1=accrange[2] - 0.5*arrwid, y0=1.02, lwd=2)
-    polygon(x=c(accrange[1], rep(accrange[1]+arrwid, 2)), y=c(1.02, 1.01, 1.03), col="black")
-    polygon(x=c(rep(accrange[2] - arrwid, 2), accrange[2]), y=c(1.03, 1.01, 1.02), col="black")
-    par(xpd=NA)
-    text(accrange, 1.06, labels=accrange, adj=c(0.5, 0))
-    par(xpd=FALSE)
+    if (is.na(accrange[1])) {
+        legend("right", legend=intType, bty="n")
+    } else {
+        arrwid <- (xlim[2] - xlim[1]) / 50
+        abline(v=accrange, col=ifelse(intType == "Optimal performance", c("dodgerblue4","brown4"), "black"), lty=2)
+        segments(x0=accrange[1] + 0.5*arrwid,  x1=accrange[2] - 0.5*arrwid, y0=1.02, lwd=2)
+        polygon(x=c(accrange[1], rep(accrange[1]+arrwid, 2)), y=c(1.02, 1.01, 1.03), col="black")
+        polygon(x=c(rep(accrange[2] - arrwid, 2), accrange[2]), y=c(1.03, 1.01, 1.02), col="black")
+        par(xpd=NA)
+        text(accrange[1], 1.06, labels=accrange[1], adj=c(1, 0),
+             col=ifelse(intType == "Optimal performance","dodgerblue4","black"))
+        text(accrange[2], 1.06, labels=accrange[2], adj=c(0, 0),
+             col=ifelse(intType == "Optimal performance","brown4","black"))
+        par(xpd=FALSE)
+        text(accrange[2], 0.01, srt=90, intType, adj=c(0,1))
+    }
 }
 
 .plotPerformance.count <- function(x, y, z) {
+### x, SSMD; y, treatments of a certain type; z, SSMD threshold
     if (length(y) > 1) {	      
-        return(sum(apply(x[y,], MAR=1, FUN=function(a) {any(abs(a) >= z)}), na.rm=T) / length(y))
+        return(sum(apply(abs(x[y,]) >= z, MAR=1, any), na.rm=T) / length(y))
     }
     if (length(y) == 1) {
         return(sum(any(abs(x[y,]) >= z)))
@@ -538,6 +567,8 @@ plotPerformance <- function(raw, norm, treat, cores) {
         return(NA)
     }
 }
+
+
 #### Main part ####
 
 ### Load packages
