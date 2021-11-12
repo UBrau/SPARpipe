@@ -100,24 +100,24 @@ foreach my $sample (sort keys %UNQ) {
 	next;
     }
     
-#    system "$path/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
-#	die "[3] Error when getting counts for $sample\n";
+    system "$path/bin/junction_counts.sh $outDir/map/$FWF{$sample} $juncBase" and
+	die "[3] Error when getting counts for $sample\n";
 }
 print "[3] Done getting junction counts\n";
 
 
 # Get PSI, RPM, pseudo counts etc. per well
 mkdir $outDir."/welldata" unless (-e $outDir."/welldata");
-#system "$path/R/compute_psi_rpm.R -c $cores $outDir -e $evTab" and
-#    die "[3] Error when calculating PSI etc.\n";
+system "$path/R/compute_psi_rpm.R -c $cores $outDir -e $evTab" and
+    die "[3] Error when calculating PSI etc.\n";
 print "[3] Done computing PSI\n";
 
 
 # Merge tables
 mkdir $outDir."/batchdata" unless (-e $outDir."/batchdata");
 foreach my $batch (sort keys %BATCHES) {
-#    system "$path/R/merge_tables.R -b $batch -c $cores $outDir" and
-#	die "[3] Error when merging tables\n";
+    system "$path/R/merge_tables.R -b $batch -c $cores $outDir" and
+	die "[3] Error when merging tables\n";
     print "[3] Done merging tables for batch $batch\n";
 }
 
