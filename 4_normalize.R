@@ -53,7 +53,8 @@ normalizePSI <- function(x, treat, type, negCtlWt=1) {
                        dimnames=list(paste(raw$ID, raw$Replicate, sep="."), names(raw)[-c(1,2)])
                        )
         for (i in 1:ncol(norm)) {
-            allMed <- median(x[treat$Type != "ctlPos", i + 2], na.rm=T)  
+            allMed <- median(c(x[treat$Type != "ctlPos", i + 2],
+                               rep(x[treat$Type == "ctlNeg", i + 2], negCtlWt - 1)), na.rm=T)
             plateMed <- sapply(plates, FUN=function(y) {
                 median(c(x[treat$Type != "ctlPos" & treat$Plate == y, i + 2],
                          rep(x[treat$Type == "ctlNeg" & treat$Plate == y, i + 2], negCtlWt - 1)), na.rm=T)
@@ -64,6 +65,23 @@ normalizePSI <- function(x, treat, type, negCtlWt=1) {
             norm[,i] <- pmax(0, pmin(100, no))
         }
     }
+
+    if (type == "pCtlMedian") {
+        norm <- matrix(nrow=nrow(raw), ncol=ncol(raw) - 2,
+                       dimnames=list(paste(raw$ID, raw$Replicate, sep="."), names(raw)[-c(1,2)])
+                       )
+        for (i in 1:ncol(norm)) {
+            allMed <- median(x[treat$Type == "ctlNeg", i + 2], na.rm=T)  
+            plateMed <- sapply(plates, FUN=function(y) {
+                median(x[treat$Type == "ctlNeg" & treat$Plate == y, i + 2], na.rm=T)
+            })
+
+            no <- x[, i + 2]
+            for (j in plates) {no[treat$Plate == j] <- no[treat$Plate == j] - plateMed[plates == j] + allMed}
+            norm[,i] <- pmax(0, pmin(100, no))
+        }
+    }
+    
 
     norm
 }
