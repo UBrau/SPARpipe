@@ -598,8 +598,8 @@ libMissing <- !require(parallel, quietly=T) && stop("Failed to load R package 'p
 inDir <- sub("\\/*$","",opt$args[length(opt$args)]) # directories are checked upstream
 
 if (is.null(opt$options$treatTab))          {stop("--treatTab must be specified")}
-if (!(opt$options$norm %in% c("none","pMedian","wpMedian")))  {
-    stop("--norm must be one of 'none', 'pMedian', 'wpMedian'")
+if (!(opt$options$norm %in% c("none","pMedian","wpMedian","pCtlMedian")))  {
+    stop("--norm must 'none', 'pMedian', 'wpMedian', or 'pCtlMedian'")
 }
 
 if (!dir.exists(inDir))                     {stop("Input directory not found")}
