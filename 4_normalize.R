@@ -2,7 +2,7 @@
 ### Normalize raw PSI and compute SSMD
 ### Part of the SPARpipe pipeline for analysis of SPAR-seq data
 ###
-### U. Braunschweig, 08/2017
+### U. Braunschweig, 2017-2021
 
 
 libMissing <- !require(optparse, quietly=T) && stop("Failed to load R package 'optparse'")
@@ -16,7 +16,8 @@ option.list <- list(
                 across replicates), Replicate, Barcode (e.g., W001), Plate, Treatment"),
     make_option(c("-n", "--norm"),           default="pMedian",
                 help="Type of normalization. Supported are 'none', 'pMedian' (plate median), wpMedian'
-                (plate median with higher weight for neg. controls) [%default]"),
+                (plate median with higher weight for neg. controls), or 'pCtlMedian' (only negative
+                controls are considered) [%default]"),
     make_option(c("-w", "--negCtlWt"),       default=5,
                 help="Weight for neg. controls when --norm=wpMedian [%default]"),
     make_option(c("-m", "--minCounts"),      default=20,
