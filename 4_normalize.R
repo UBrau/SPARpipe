@@ -27,7 +27,7 @@ option.list <- list(
 )
 parser <- OptionParser(option_list=option.list,
                        usage="usage: %prog [options] OUTDIR",
-                       description="Normalize raw PSI and produce dPSI and SSMD")
+                       description="Normalize raw PSI, average replicates, produce dPSI and SSMD, and generate informative plots")
 opt <- parse_args(parser, args=args, positional_arguments=TRUE)
 
 if (length(opt$args) != 1)
@@ -219,40 +219,40 @@ get.ssmd <- function(psi, counts, psiNeg, varNeg, ev="?", type="?", minCounts=1)
 
 
 
-drawPlots <- function(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, treat) {
+drawPlots <- function(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, outDir, treat) {
 ### Generate plots to monitor normalization and screen performance
 
     ## %samples for each event with low read counts
-    pdf(file.path(inDir, "norm", "LowCountEvents.pdf"), wid=3 + ncol(norm)/12, hei=5)
+    pdf(file.path(outDir, "LowCountEvents.pdf"), wid=3 + ncol(norm)/12, hei=5)
     plotLowCounts(counts, minCounts=opt$options$minCounts)
     dev.off()
     
     ## Sorted raw and normalized PSI
-    pdf(file.path(inDir, "norm", "PSIsamples_raw.norm.pdf"), wid=9, hei=8)
+    pdf(file.path(outDir, "PSIsamples_raw.norm.pdf"), wid=9, hei=8)
     plotSamplePSI(raw, norm, treat)
     dev.off()
 
     ## dPSI before and after normalization
-    pdf(file.path(inDir, "norm", "PSIreplicateDiff_raw.norm.pdf"), wid=6, hei=6)
+    pdf(file.path(outDir, "PSIreplicateDiff_raw.norm.pdf"), wid=6, hei=6)
     medDiff <- plotRepDiff(raw, norm, treat)
     dev.off()
 
-    pdf(file.path(inDir, "norm", "PSIreplicateDiff_change.pdf"), wid=3 + ncol(norm)/8, hei=6)
+    pdf(file.path(outDir, "PSIreplicateDiff_change.pdf"), wid=3 + ncol(norm)/8, hei=6)
     plotMedRepDiff(medDiff)
     dev.off()
 
     ## Change in SSMD of neg. controls and top treatments after normalization
-    pdf(file.path(inDir, "norm", "SSMDchange.pdf"), wid=7, hei=7.6)
+    pdf(file.path(outDir, "SSMDchange.pdf"), wid=7, hei=7.6)
     plotNormImprovement(ssmd.raw$ssmd, ssmd.norm$ssmd, treat)
     dev.off()
     
     ## Sorted SSMD before and after normalization
-    pdf(file.path(inDir, "norm", "SSMDsorted_raw.norm.pdf"), wid=6, hei=8)
+    pdf(file.path(outDir, "SSMDsorted_raw.norm.pdf"), wid=6, hei=8)
     plotTreatSSMD(ssmd.raw$ssmd, ssmd.norm$ssmd, treat=treat)
     dev.off()
 
     ## Scatter plot of SSMD before and after normalization
-    pdf(file.path(inDir, "norm", "SSMDscatter_raw.norm.pdf"), wid=6, hei=6.5)
+    pdf(file.path(outDir, "SSMDscatter_raw.norm.pdf"), wid=6, hei=6.5)
     plotScatterSSMD(ssmd.raw$ssmd, ssmd.norm$ssmd, treat=treat)
     dev.off()
     
@@ -261,7 +261,7 @@ drawPlots <- function(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, treat)
         cat("No positive controls found, skipping performance plot. Annotate positive and negative controls",
             "with 'ctlPos' and 'ctlNeg' in column 'Type' of the treatment table.\n")
     } else {
-        pdf(file.path(inDir, "norm", "ScreenPerformance.pdf"), wid=7, hei=10)
+        pdf(file.path(outDir, "ScreenPerformance.pdf"), wid=7, hei=10)
         plotPerformance(ssmd.raw$ssmd, ssmd.norm$ssmd, treat, cores=opt$options$cores)
         dev.off()
     }
@@ -682,6 +682,7 @@ libMissing <- !require(parallel, quietly=T) && stop("Failed to load R package 'p
 
 ### Check input
 inDir <- sub("\\/*$","",opt$args[length(opt$args)]) # directories are checked upstream
+outDir <- file.path(inDir, paste("norm", opt$options$norm, sep="."))
 
 if (is.null(opt$options$treatTab))          {stop("--treatTab must be specified")}
 if (!(opt$options$norm %in% c("none","pMedian","wpMedian","pCtlMedian")))  {
@@ -690,7 +691,7 @@ if (!(opt$options$norm %in% c("none","pMedian","wpMedian","pCtlMedian")))  {
 
 if (!dir.exists(inDir))                     {stop("Input directory not found")}
 if (!dir.exists(file.path(inDir, "raw")))   {stop("Subdirectory raw/ not found")}
-if (!dir.exists(file.path(inDir, "norm")))  {dir.create(file.path(inDir, "norm"))}
+if (!dir.exists(outDir))                    {dir.create(outDir)}
 if (!file.exists(opt$options$treatTab))     {stop("Treatment table not found")}
 if (!file.exists(file.path(inDir, "raw", "PSI.raw.tab"))) {
     stop("Raw PSI file not found at ", paste(inDir, "/raw/PSI.raw.tab", sep=""))
@@ -745,14 +746,14 @@ uniqTreat <- merge(data.frame(ID = rownames(ssmd.norm$psi), ssmdInd = 1:nrow(ssm
 uniqTreat <- uniqTreat[order(uniqTreat$ssmdInd),-2]
 
 write.table(data.frame(uniqTreat, ssmd.norm$psi,  check.names=F), row.names=F, col.names=T, quote=F, sep='\t',
-            file=file.path(inDir, "norm", "PSI.norm.tab"))
+            file=file.path(outDir, "PSI.norm.tab"))
 write.table(data.frame(uniqTreat, ssmd.norm$dpsi, check.names=F), row.names=F, col.names=T, quote=F, sep='\t',
-            file=file.path(inDir, "norm", "dPSI.norm.tab"))
+            file=file.path(outDir, "dPSI.norm.tab"))
 write.table(data.frame(uniqTreat, ssmd.norm$ssmd, check.names=F), row.names=F, col.names=T, quote=F, sep='\t',
-            file=file.path(inDir, "norm", "SSMD.norm.tab"))
+            file=file.path(outDir, "SSMD.norm.tab"))
 
 ### Generate plots
 cat("Generating plots...\n")
-drawPlots(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, treat)
+drawPlots(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, outDir, treat)
 
 cat("Done\n\n")
