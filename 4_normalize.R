@@ -241,6 +241,11 @@ drawPlots <- function(counts, raw, norm, ssmd.raw, ssmd.norm, opt, inDir, treat)
     plotMedRepDiff(medDiff)
     dev.off()
 
+    ## Change in SSMD of neg. controls and top treatments after normalization
+    pdf(file.path(inDir, "norm", "SSMDchange.pdf"), wid=7, hei=7.6)
+    plotNormImprovement(ssmd.raw$ssmd, ssmd.norm$ssmd, treat)
+    dev.off()
+    
     ## Sorted SSMD before and after normalization
     pdf(file.path(inDir, "norm", "SSMDsorted_raw.norm.pdf"), wid=6, hei=8)
     plotTreatSSMD(ssmd.raw$ssmd, ssmd.norm$ssmd, treat=treat)
@@ -403,6 +408,87 @@ plotMedRepDiff <- function(medDiff, cols=c("saddlebrown","yellowgreen")) {
     text(xpos, ifelse(medDiff <= 0, medDiff, 0), srt=90, adj=c(1.1, 0.5), labels=names(medDiff))
     par(xpd=NA)
     title(main="Change in replicate PSI difference during normalization", cex.main=1.2)    
+}
+
+plotNormImprovement <- function(ssmd.raw, ssmd.norm, treat, topPerc=3) {
+### Plot the change in mean |SSMD| of the top 5% vs. the negative controls
+    topN <- round(topPerc / 100 * nrow(ssmd.norm))
+
+    tr <- treat[treat$Replicate == treat$Replicate[1],]
+    negCtl <- which(tr$Type == "ctlNeg")
+    other  <- which(tr$Type != "ctlNeg")
+
+    scores.neg <- list(raw  = colMeans(abs(ssmd.raw[negCtl,]), na.rm=T),
+                       norm = colMeans(abs(ssmd.norm[negCtl,]),  na.rm=T)
+                       )
+
+    topHits <- apply(abs(ssmd.norm), MAR=2, FUN=function(x) {
+        tmp <- setdiff(order(x, decreasing=T), negCtl)
+        tmp[1:topN]
+    })
+    if (is.null(dim(topHits))) {topHits <- matrix(topHits, nrow=1)}
+    
+    scores.top <- list(
+        raw  = sapply(1:ncol(topHits), FUN=function(x) {
+            mean(abs(ssmd.raw)[topHits[,x], x], na.rm=T)
+        }),
+        norm = sapply(1:ncol(topHits), FUN=function(x) {
+            mean(abs(ssmd.norm)[topHits[,x], x], na.rm=T)
+        })
+    )
+
+    delta <- cbind(negCtl = scores.neg$norm - scores.neg$raw,
+                   top    = scores.top$norm - scores.top$raw
+                   )
+
+    ## Plot prep
+    xlim <- range(delta[,"negCtl"], na.rm=T)
+    if (xlim[2] - xlim[1] < 1 | any(is.na(xlim))) {
+        xlim[1] <- min(xlim[1], -0.5)
+        xlim[2] <- max(xlim[2], 0.5)
+    }
+    ylim <- range(delta[,"top"], na.rm=T)
+    if (ylim[2] - ylim[1] < 1 | any(is.na(ylim))) {
+        ylim[1] <- min(ylim[1], -0.5)
+        ylim[2] <- max(ylim[2], 0.5)
+    }
+    xlim[1]
+    
+
+    cols <- .colorScale(scores.top$norm)
+    
+    plot(delta, xlim=xlim, ylim=ylim, type="n",
+         xlab="Mean |SSMD| change of negative controls",
+         ylab=paste0("Mean |SSMD| change of top ", topN, " treatments"),
+         main="Change of |SSMD| upon normalization")
+    text(delta, labels=rownames(delta), pos=4, cex=0.5, col="grey70")
+    points(delta, col=cols$cols, pch=19)
+    abline(a=0, b=1, lty=2)
+    text(xlim[1], xlim[1] + 0.02 * (ylim[2] - ylim[1]), srt=90, adj=c(0,0.5),
+         "Normalization succesful -->")
+
+    legend("right",
+           title=paste("Mean |SSMD| of\ntop", topN, "treatments:"),
+           rev(cols$categs),
+           pch=20, col=rev(cols$palette), bty="n")
+}
+
+.colorScale <- function(x,
+                        lims = c(0, 1, 3, 6, 10, 15, 30, Inf),
+                        mix = c("dodgerblue3","goldenrod1")) {
+### Called by plotNormImprovement()
+    cols <- colorRampPalette(mix)(length(lims) - 1)
+    out <- rep(NA, length(x))
+    for (i in 1:length(cols)) {
+        out[x >= lims[i] & x < lims[i + 1]] <- cols[i]
+    }
+    categs <- paste(lims[-length(lims)], lims[-1], sep="-")
+    categs[length(categs)] <- paste0(">", lims[length(lims) -1])
+    
+    list(cols    = out,
+         categs  = categs,
+         palette = cols
+         )
 }
 
 plotTreatSSMD <- function(raw, norm, treat) {
