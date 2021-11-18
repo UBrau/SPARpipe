@@ -70,17 +70,17 @@ Workflow
 4. Use the forward and reverse junction FASTA files to generate (separate) bowtie indices.
 
 5. Generate a **treatment table** for use downstream. It must have these columns:
-   *ID*, a unique number starting with 'T' (e.g. T001) for each individual treatment being tracked. 
+   * *ID*, a unique number starting with 'T' (e.g. T001) for each individual treatment being tracked. 
          This can include similar treatments done multiple times.
-   *Replicate*
-   *Batch*: If a large experiment requires re-using of Barcodes, designate data coming from one batch
+   * *Replicate*
+   * *Batch*: If a large experiment requires re-using of Barcodes, designate data coming from one batch
        (e.g., Illumina lane) with a unique string (cannot contain '_').
-   *Barcode*: Unique number starting with 'W' (e.g. W001) idenfifying a unique combination of fwd and
+   * *Barcode*: Unique number starting with 'W' (e.g. W001) idenfifying a unique combination of fwd and
        rev barcodes.
-   *Treatment*: short string (no '_' characters) describing the treatment, e.g. 'DMSO' or 'siSrrm4'.
-   *Type*: One of 'posCtl' (positive control), 'negCtl' (negative control), 'ctl' (other control),
+   * *Treatment*: short string (no '_' characters) describing the treatment, e.g. 'DMSO' or 'siSrrm4'.
+   * *Type*: One of 'posCtl' (positive control), 'negCtl' (negative control), 'ctl' (other control),
        or 'exp' (experimental). Type designations are used during normalization and for plots.
-   *Plate*: Number of physical multi-well plate a given sample was derived from. Used for normalization.
+   * *Plate*: Number of physical multi-well plate a given sample was derived from. Used for normalization.
    
 
 ### Experiment
@@ -139,8 +139,8 @@ Input for analysis
 Output
 ------
 * Tables with raw and normalized PSI, dPSI, and SSMD
-* Plots to follow normalization, check coverage, and monitor screen performance
 * Demultiplexing and mapping stats
+* Plots to follow normalization, check coverage, and monitor screen performance
 * Intermediate files per sample and batch such as FASTQ files of unmapped reads, 
   BAM files of mapped reads, raw PSI and count files
 
