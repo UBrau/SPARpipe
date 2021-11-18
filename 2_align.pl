@@ -12,7 +12,7 @@ my $outDir = ".";
 my $cores  = 1;
 my $trim5  = 0;
 my $trim3  = 0;
-my $btopt = "--best -v 3 -k 1";
+my $btopt = "--best -v 3 -k 1 -m 1";
 my $bin;
 
 # Initialize
