@@ -87,7 +87,7 @@ Workflow
 Order your primers, conduct your experiment, sequence your amplicon pools with paired-end reads and
 barcode reads (or see below). It is advisable to run a small-scale sequencing run to identify potentially 
 problematic primers before embarking on a large project. If a large experiment requires re-use of
-barcode combinations, 
+barcode combinations, that is not a problem as long as each batch of barcodes is kept separate.
 
 
 ### Analysis
