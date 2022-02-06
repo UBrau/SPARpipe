@@ -263,9 +263,9 @@ combi$E <- lapply(1:nrow(events), FUN=function(x) {
 
 
 nE <- sapply(combi$E, length)
-matchEn <- sapply(1:nrow(events), FUN=function(x) {nE[x] == length(elem[[x]])})
-if (any(matchEn)) {
-    stop("Event(s) ", paste(events$event[which(matchEn)], collapse=", "),
+matchEn <- sapply(1:nrow(events), FUN=function(x) {nE[x] == length(elem[[x]]) - 2})
+if (any(!matchEn)) {
+    stop("Event(s) ", paste(events$event[which(!matchEn)], collapse=", "),
          " has/have different number of sequence segments than defined by structure code.")
 }
 
@@ -540,7 +540,6 @@ reverse <- lapply(1:nrow(events), FUN=function(x) {
          elem = outIncl
          )    
 })
-
 
 ## Generate amplicons - note that there may be more amplicons than junctions because
 ## reads may not reach deep enough into amplicons to distinguish different ones
