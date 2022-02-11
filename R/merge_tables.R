@@ -46,8 +46,11 @@ main <- function(batch, cores=1) {
     psi.input     <- mclapply(psi.input, "[", c("Event", "Element", "PSI.Fw", "SD.Fw", "PSI.Rv", "SD.Rv", "PSI"),
                               mc.cores=cores)
     names(psi.input) <- names(read.input) <- names(countIE.input) <- names(rpm.input) <- sub(".*_(W[0-9]+).+", "\\1", psi.files)
-
-    targetID <- paste(psi.input[[1]]$Event, psi.input[[1]]$Element, sep=".")
+ 
+    targetID <- ifelse(is.na(psi.input[[1]]$Element),
+		       as.character(psi.input[[1]]$Event),
+		       paste(psi.input[[1]]$Event, psi.input[[1]]$Element, sep=".")
+		       )
 
 
     ## PSI

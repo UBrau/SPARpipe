@@ -139,6 +139,8 @@ if (any(!files$found)) {
 ### Load, combine and save tables
 treat <- read.delim(opt$options$treatTab)
 ev    <- read.delim(opt$options$eventTab, sep="\t", header=T, comment.char="#")
+
+
 ev$Name <- ifelse(is.na(ev$Element), as.character(ev$Event), paste(ev$Event, ev$Element, sep="."))
 ev <- ev[order(ev$Name),]
 
