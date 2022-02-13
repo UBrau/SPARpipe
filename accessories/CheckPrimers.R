@@ -39,6 +39,8 @@ if (is.null(opt$primerFile))      {stop("PRIMERFILE must be provided")}
 if (!file.exists(opt$primerFile)) {stop("Could not find PRIMERFILE, file: ", opt$primerFile)}
 
 prim <- read.csv(opt$primerFile, as.is=T, comment.char="#")
+prim <- prim[!grepl("^#", prim[,1]),]
+
 missCol <- data.frame(col   = c("event", "seqF", "seqR"),
                       found = sapply(c("event", "seqF", "seqR"), FUN=function(x) {x %in% names(prim)})
                       )
