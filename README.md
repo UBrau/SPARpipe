@@ -156,6 +156,8 @@ If you use this code, or parts of it, in published work, please cite:
 
 Han H, Braunschweig U, Gonatopoulos-Pournatzis T, Weatheritt RJ, Hirsch CL, Ha KC, Radovani E, Nabeel-Shah S, Sterne-Weiler T, Wang J, O'Hanlon D, Pan Q, Ray D, Zheng H, Vizeacoumar F, Datti A, Magomedova L, Cummins CL, Hughes TR, Greenblatt JF, Wrana JL, Moffat J, Blencowe BJ. Multilayered Control of Alternative Splicing Regulatory Networks by Transcription Factors. *Mol Cell*. 2017 Feb 2;65(3):539-553.e7. [PubMed](https://www.ncbi.nlm.nih.gov/pubmed/28157508)
 
+[![DOI](https://zenodo.org/badge/97053989.svg)](https://zenodo.org/badge/latestdoi/97053989)
+
 For feedback and questions, mail to u.braunschweig@utoronto.ca.
 
 
