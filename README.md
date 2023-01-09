@@ -30,12 +30,17 @@ Dependencies
 Workflow
 --------
 ### Setup
-1. Design primers for your set of RNA processing events of interest. Avoid amplicons of
-   dramatically different length to minimize amplification bias, and genes with dramatically 
-   different expression lest you sequence mostly the few most highly expressed events.
-2. Check primers for 3'-overlaps using `CheckPrimers.R`. We have found that overlaps of 5 bp 
-   and more may cause primer dimer problems.
-3. Run `MakeJunctionsFASTA.R` to generate junction libraries in FASTA format, report the minimum
+1. **Design primers** for your set of RNA processing events of interest using your favourite software, taking into consideration:
+   * Avoid amplicons of dramatically different lengths to minimize amplification bias. For intron retention events (or some other cases), that can make it necessary to use a 3-primer stragegy with two primers annealing to the flanking exon, and an intron-internal primer to pick up intron-retained transcripts. This has worked well for us; more complex strategies with more primers are possible, but make sure that there is no cross-amplification which would result in amplicon abundances that do not reflect the isoform distribution in the cell.
+   * Avoid targeting genes with dramatically different expression lest you sequence mostly the few most highly expressed events.
+   * Different universal adaptors (Illumina) are added to the 5'-ends of the forward and reverse primers. These are then used to add multiplexing barcodes in a second round of PCR - see publications below.
+   * Check primers for 3'-overlaps using the `CheckPrimers.R` accessory. We have found that overlaps of 5 bp 
+   and more may cause primer dimer problems. Not all 5-bp overlaps result in dimers, but all dimers have them. Longer overlaps are worse.
+   * Make sure that amplicons are sufficiently different from one another; using the script mentioned in step 3 will check for that. Usually, designing the primers close to the monitored splice junctions maximizes the differential sequence space that can be monitored.
+
+2. **Test each primer set** on its own to make sure it amplifies the correct bands. Then test them all in a pool - when using several dozen primer sets, you should see a smear with few strong bands sticking out.
+
+3. Run `MakeJunctionsFASTA.R` to **generate junction libraries** in FASTA format, report the minimum
    edit distance between junctions (which should be as big as possible but > 1), and BED files
    of the events required downstream by 3_combine.pl. This script also checks if the elements of
    the RNA events that you are interested in can be reliably measured given a read length.
@@ -67,7 +72,7 @@ Workflow
    The **primerFile** is a CSV file with columns *event*, *seqF* and *seqR* (5' to 3', including 
    adaptors)
 
-4. Use the forward and reverse junction FASTA files to generate (separate) bowtie indices.
+4. Use the forward and reverse junction FASTA files to **generate (separate) bowtie indices**.
 
 5. Generate a **treatment table** for use downstream. It must have these columns:
    * *ID*, a unique number starting with 'T' (e.g. T001) for each individual treatment being tracked. 
@@ -84,9 +89,8 @@ Workflow
    
 
 ### Experiment
-Order your primers, conduct your experiment, sequence your amplicon pools with paired-end reads and
-barcode reads (or see below). It is advisable to run a small-scale sequencing run to identify potentially 
-problematic primers before embarking on a large project. If a large experiment requires re-use of
+Conduct your experiment, sequence your amplicon pools with paired-end reads and
+barcode reads (or see below). We strongly recommend doing a low-scale test sequencing run to allow recognizing and removing primer sets that do not amplify well, cause excessive dimers, or take up too much sequence space. If a large experiment requires re-use of
 barcode combinations, that is not a problem as long as each batch of barcodes is kept separate.
 
 
@@ -147,17 +151,30 @@ Output
 
 Known issues
 ------------
-- There is no module yet to extract expression changes. See the paper for a strategy.
+- There is no module yet to extract expression changes. See the 2017 paper for a strategy.
 
 
-Reference
----------
+Citation
+--------
 If you use this code, or parts of it, in published work, please cite:
 
-Han H, Braunschweig U, Gonatopoulos-Pournatzis T, Weatheritt RJ, Hirsch CL, Ha KC, Radovani E, Nabeel-Shah S, Sterne-Weiler T, Wang J, O'Hanlon D, Pan Q, Ray D, Zheng H, Vizeacoumar F, Datti A, Magomedova L, Cummins CL, Hughes TR, Greenblatt JF, Wrana JL, Moffat J, Blencowe BJ. Multilayered Control of Alternative Splicing Regulatory Networks by Transcription Factors. *Mol Cell*. 2017 Feb 2;65(3):539-553.e7. [PubMed](https://www.ncbi.nlm.nih.gov/pubmed/28157508)
+Systematic exploration of dynamic splicing networks reveals conserved multistage regulators of neurogenesis. Han H, Best AJ, Braunschweig U, Mikolajewicz N, Li JD, Roth J, Chowdhury F, Mantica F, Nabeel-Shah S, Parada G, Brown KR, O'Hanlon D, Wei J, Yao Y, Zid AA, Comsa LC, Jen M, Wang J, Datti A, Gonatopoulos-Pournatzis T, Weatheritt RJ, Greenblatt JF, Wrana JL, Irimia M, Gingras AC, Moffat J, Blencowe BJ. *Mol Cell* 2022 Nov 1;72(3):510-524.e12. [PubMed](https://pubmed.ncbi.nlm.nih.gov/35914530/)
 
+Version-specific DOI:
 [![DOI](https://zenodo.org/badge/97053989.svg)](https://zenodo.org/badge/latestdoi/97053989)
 
+
+References
+----------
+A multiplexed, next generation sequencing platform for high-throughput detection of SARS-CoV-2. Aynaud MM, Hernandez JJ, Barutcu S, Braunschweig U, Chan K, Pearson JD, Trcka D, Prosser SL, Kim J, Barrios-Rodiles M, Jen M, Song S, Shen J, Bruce C, Hazlett B, Poutanen S, Attisano L, Bremner R, Blencowe BJ, Mazzulli T, Han H, Pelletier L, Wrana JL. *Nat Commun* 2021 Mar 3;12(1):1405. [PubMed](https://pubmed.ncbi.nlm.nih.gov/33658502/)
+
+Genome-wide CRISPR-Cas9 Interrogation of Splicing Networks Reveals a Mechanism for Recognition of Autism-Misregulated Neuronal Microexons. Gonatopoulos-Pournatzis T, Wu M, Braunschweig U, Roth J, Han H, Best AJ, Raj B, Aregger M, O'Hanlon D, Ellis JD, Calarco JA, Moffat J, Gingras AC, Blencowe BJ. *Mol Cell* 2018 Nov 1;72(3):510-524.e12. [PubMed](https://pubmed.ncbi.nlm.nih.gov/30388412/)
+
+Multilayered Control of Alternative Splicing Regulatory Networks by Transcription Factors. Han H, Braunschweig U, Gonatopoulos-Pournatzis T, Weatheritt RJ, Hirsch CL, Ha KC, Radovani E, Nabeel-Shah S, Sterne-Weiler T, Wang J, O'Hanlon D, Pan Q, Ray D, Zheng H, Vizeacoumar F, Datti A, Magomedova L, Cummins CL, Hughes TR, Greenblatt JF, Wrana JL, Moffat J, Blencowe BJ. *Mol Cell* 2017 Feb 2;65(3):539-553.e7. [PubMed](https://www.ncbi.nlm.nih.gov/pubmed/28157508)
+
+
+Feedback
+--------
 For feedback and questions, mail to u.braunschweig@utoronto.ca.
 
 
