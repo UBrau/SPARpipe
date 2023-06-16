@@ -39,7 +39,7 @@ treat <- read.delim(opt$options$treatTab)
 
 main <- function(workDir) {
     mapFilesF <- dir(file.path(workDir, "map"), pattern=".*(R1|Fwd|fwd|Fw|fw)\\.stats\\.txt")
-    mapFilesR <- dir(file.path(workDir, "map"), pattern=".*(Rw|Rev|rev|Rv|rv)\\.stats\\.txt")
+    mapFilesR <- dir(file.path(workDir, "map"), pattern=".*(R2|Rev|rev|Rv|rv)\\.stats\\.txt")
     
     statsF <- lapply(file.path(workDir, "map", mapFilesF), read.delim, header=F)
     statsR <- lapply(file.path(workDir, "map", mapFilesR), read.delim, header=F)
